@@ -146,19 +146,19 @@ export function SentimentMatrix({ industries, onSelectArticles }: SentimentMatri
 
                 {/* Emerging Use Cases Preview */}
                 {industry.useCases.length > 0 && (
-                  <div className="space-y-2 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800/80">
+                  <div className="space-y-2.5 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800/80">
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
                       <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
                       <span>Emerging AI Use Cases Identified:</span>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2.5">
                       {industry.useCases.slice(0, 2).map((uc) => (
                         <div
                           key={uc.id}
-                          className="text-xs p-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60 flex flex-col gap-1.5"
+                          className="text-xs p-3.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60 flex flex-col gap-2"
                         >
                           <div className="flex items-start justify-between gap-2">
-                            <span className="font-semibold text-slate-800 dark:text-slate-200">
+                            <span className="font-bold text-slate-800 dark:text-slate-100">
                               {uc.title}
                             </span>
                             <span
@@ -173,19 +173,24 @@ export function SentimentMatrix({ industries, onSelectArticles }: SentimentMatri
                               {uc.maturityStage}
                             </span>
                           </div>
-                          <p className="text-slate-500 dark:text-slate-400 text-[11px] line-clamp-2">
-                            {uc.description}
-                          </p>
+
+                          <div className="text-[11px] text-slate-600 dark:text-slate-300 bg-white/60 dark:bg-slate-900/60 p-2 rounded-lg border border-slate-200/40 dark:border-slate-800">
+                            <span className="font-semibold text-rose-600 dark:text-rose-400">Problem: </span>
+                            {uc.problemSolved}
+                          </div>
+
                           {uc.sourceUrl && (
-                            <a
-                              href={uc.sourceUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 mt-0.5 w-fit"
-                            >
-                              <span>Ref: {uc.sourceTitle}</span>
-                              <ExternalLink className="w-2.5 h-2.5" />
-                            </a>
+                            <div className="flex justify-end pt-1">
+                              <a
+                                href={uc.sourceUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                              >
+                                <span>Ref: {uc.sourceTitle}</span>
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            </div>
                           )}
                         </div>
                       ))}

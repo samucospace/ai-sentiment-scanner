@@ -31,27 +31,29 @@ export interface RawArticle {
 }
 
 export interface WorkerSentiment {
-  score: number; // -1.0 (very negative) to +1.0 (very positive)
-  label: string; // e.g., "Cautious & Anxious", "Productivity-Focused", "Resistant"
+  score: number; // -1.0 to +1.0
+  label: string;
   rationale: string;
   keyQuotes: string[];
   professionsImpacted: string[];
 }
 
 export interface CustomerSentiment {
-  score: number; // -1.0 (very negative) to +1.0 (very positive)
-  label: string; // e.g., "Enthusiastic", "Concerned about Privacy", "Indifferent"
+  score: number; // -1.0 to +1.0
+  label: string;
   rationale: string;
   keyQuotes: string[];
 }
 
 export interface ExtractedUseCase {
   id: string;
-  title: string;
-  description: string;
+  title: string; // The real name of the use case (e.g. "Ambient Clinical Scribing & EHR Charting")
+  problemSolved: string; // The specific pain point or workflow bottleneck being addressed
+  howItWorks: string; // How the AI model or system accomplishes this
+  targetUsers: string; // Who directly uses it (e.g. "Primary care doctors, emergency nurses")
+  keyBenefit: string; // Measurable outcome or improvement
   industry: string;
-  maturityStage: 'Research' | 'Pilot' | 'Production' | 'Policy/Banned';
-  problemSolved: string;
+  maturityStage: 'Production' | 'Pilot' | 'Research' | 'Policy/Banned';
   sourceTitle: string;
   sourceUrl: string;
   publishedDate?: string;
