@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { RawArticle, IndustryDigest, ExtractedUseCase, IndustryKey } from './types';
+import { RawArticle, IndustryDigest, ExtractedUseCase, IndustryKey, AppSettings } from './types';
 
 interface LLMAnalysisResult {
   workerSentiment: {
@@ -49,55 +49,8 @@ function isHighSignalArticle(art: RawArticle): boolean {
   return !garbagePhrases.some((phrase) => text.includes(phrase));
 }
 
-export async function analyzeIndustryArticles(
-  industryKey: IndustryKey,
-  industryName: string,
-  articles: RawArticle[],
-  apiKey?: string
-): Promise<IndustryDigest> {
-  const dateStr = new Date().toISOString().split('T')[0];
-  const signalArticles = articles.filter(isHighSignalArticle);
-  const effectiveArticles = signalArticles.length >= 3 ? signalArticles : articles;
-
-  if (effectiveArticles.length === 0) {
-    return {
-      id: `${industryKey}-${dateStr}`,
-      industryKey,
-      industryName,
-      date: dateStr,
-      workerSentiment: {
-        score: 0,
-        label: 'Neutral / No Data',
-        rationale: 'No relevant articles were retrieved in the current digest window.',
-        keyQuotes: [],
-        professionsImpacted: [],
-      },
-      customerSentiment: {
-        score: 0,
-        label: 'Neutral / No Data',
-        rationale: 'No relevant articles were retrieved in the current digest window.',
-        keyQuotes: [],
-      },
-      useCases: [],
-      topArticles: [],
-      summary: `No recent updates detected for ${industryName}.`,
-    };
-  }
-
-  // 1. Try Gemini Analysis if API key is provided
-  const activeKey = apiKey || process.env.GEMINI_API_KEY;
-  if (activeKey) {
-    try {
-      const genAI = new GoogleGenerativeAI(activeKey);
-      const model = genAI.getGenerativeModel({
-        model: 'gemini-1.5-flash',
-        generationConfig: {
-          responseMimeType: 'application/json',
-          temperature: 0.1,
-        },
-      });
-
-      const prompt = `You are a Principal AI Strategist and Industry Analyst.
+function buildAnalysisPrompt(industryName: string, articles: RawArticle[]): string {
+  return `You are a Principal AI Strategist and Industry Analyst.
 Analyze these Google Alert news articles about AI in "${industryName}".
 
 CRITICAL INSTRUCTIONS FOR USE CASES:
@@ -113,7 +66,7 @@ CRITICAL INSTRUCTIONS FOR USE CASES:
   7. "sourceTitle" & "sourceUrl": Exact citation.
 
 ARTICLES:
-${effectiveArticles
+${articles
   .slice(0, 15)
   .map(
     (a, idx) =>
@@ -155,6 +108,140 @@ Respond in valid JSON matching this schema:
   ],
   "summary": string
 }`;
+}
+
+async function callOpenRouter(
+  apiKey: string,
+  modelName: string,
+  prompt: string
+): Promise<LLMAnalysisResult> {
+  const selectedModel = modelName || 'google/gemini-2.0-flash-exp:free';
+  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://github.com/samucospace/ai-sentiment-scanner',
+      'X-Title': 'AI Industry Sentiment & Use Case Scanner',
+    },
+    body: JSON.stringify({
+      model: selectedModel,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are a Principal AI Strategist and Market Intelligence Analyst. Always respond with valid JSON matching the requested schema strictly without markdown formatting wrappers.',
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.1,
+    }),
+  });
+
+  if (!res.ok) {
+    const errorBody = await res.text();
+    throw new Error(`OpenRouter error (${res.status}): ${errorBody}`);
+  }
+
+  const json = await res.json();
+  const rawText = json.choices?.[0]?.message?.content || '{}';
+  const cleanJson = rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
+  return JSON.parse(cleanJson);
+}
+
+export async function analyzeIndustryArticles(
+  industryKey: IndustryKey,
+  industryName: string,
+  articles: RawArticle[],
+  settings?: AppSettings
+): Promise<IndustryDigest> {
+  const dateStr = new Date().toISOString().split('T')[0];
+  const signalArticles = articles.filter(isHighSignalArticle);
+  const effectiveArticles = signalArticles.length >= 3 ? signalArticles : articles;
+
+  if (effectiveArticles.length === 0) {
+    return {
+      id: `${industryKey}-${dateStr}`,
+      industryKey,
+      industryName,
+      date: dateStr,
+      workerSentiment: {
+        score: 0,
+        label: 'Neutral / No Data',
+        rationale: 'No relevant articles were retrieved in the current digest window.',
+        keyQuotes: [],
+        professionsImpacted: [],
+      },
+      customerSentiment: {
+        score: 0,
+        label: 'Neutral / No Data',
+        rationale: 'No relevant articles were retrieved in the current digest window.',
+        keyQuotes: [],
+      },
+      useCases: [],
+      topArticles: [],
+      summary: `No recent updates detected for ${industryName}.`,
+    };
+  }
+
+  const prompt = buildAnalysisPrompt(industryName, effectiveArticles);
+  const provider = settings?.provider || (settings?.openrouterApiKey || process.env.OPENROUTER_API_KEY ? 'openrouter' : 'gemini');
+
+  // 1. Try OpenRouter LLM Analysis
+  if (provider === 'openrouter') {
+    const openRouterKey = settings?.openrouterApiKey || process.env.OPENROUTER_API_KEY;
+    if (openRouterKey) {
+      try {
+        const modelName = settings?.modelName || 'google/gemini-2.0-flash-exp:free';
+        const parsed = await callOpenRouter(openRouterKey, modelName, prompt);
+
+        const useCases: ExtractedUseCase[] = (parsed.useCases || []).map((uc, i) => ({
+          id: `uc-${industryKey}-${i}-${Date.now()}`,
+          title: uc.title,
+          problemSolved: uc.problemSolved,
+          howItWorks: uc.howItWorks,
+          targetUsers: uc.targetUsers,
+          keyBenefit: uc.keyBenefit,
+          industry: industryName,
+          maturityStage: uc.maturityStage || 'Pilot',
+          sourceTitle: uc.sourceTitle || effectiveArticles[0]?.source || 'News Source',
+          sourceUrl: uc.sourceUrl || effectiveArticles[0]?.link || '#',
+          publishedDate: dateStr,
+        }));
+
+        return {
+          id: `${industryKey}-${dateStr}`,
+          industryKey,
+          industryName,
+          date: dateStr,
+          workerSentiment: parsed.workerSentiment,
+          customerSentiment: parsed.customerSentiment,
+          useCases,
+          topArticles: effectiveArticles.slice(0, 5),
+          summary: parsed.summary,
+        };
+      } catch (err) {
+        console.warn('OpenRouter LLM analysis error, falling back to heuristic engine:', err);
+      }
+    }
+  }
+
+  // 2. Try Gemini Analysis
+  const geminiKey = settings?.geminiApiKey || process.env.GEMINI_API_KEY;
+  if (geminiKey) {
+    try {
+      const genAI = new GoogleGenerativeAI(geminiKey);
+      const model = genAI.getGenerativeModel({
+        model: settings?.modelName?.includes('/') ? 'gemini-1.5-flash' : (settings?.modelName || 'gemini-1.5-flash'),
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.1,
+        },
+      });
 
       const response = await model.generateContent(prompt);
       const text = response.response.text();
@@ -186,11 +273,11 @@ Respond in valid JSON matching this schema:
         summary: parsed.summary,
       };
     } catch (llmError) {
-      console.warn('Gemini LLM analysis error, using enhanced domain extractor:', llmError);
+      console.warn('Gemini LLM analysis error, using fallback heuristic engine:', llmError);
     }
   }
 
-  // 2. High-Fidelity Domain-Aware Heuristic & NLP Extractor
+  // 3. High-Fidelity Domain-Aware Heuristic & NLP Extractor
   return extractIndustryIntelligenceHeuristic(industryKey, industryName, effectiveArticles, dateStr);
 }
 
@@ -478,7 +565,7 @@ function extractIndustryIntelligenceHeuristic(
   const matchedUseCases: ExtractedUseCase[] = [];
 
   // Match articles against rich use-case templates
-  articles.forEach((art, idx) => {
+  articles.forEach((art) => {
     const text = `${art.title} ${art.snippet}`.toLowerCase();
 
     for (const tpl of templates) {

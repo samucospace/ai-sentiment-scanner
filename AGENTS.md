@@ -14,9 +14,10 @@ The **AI Industry Sentiment & Use Case Scanner** is an autonomous intelligence d
    - **Workforce / Practitioner Sentiment**: Tracks concerns over liability, burnout, cognitive offloading, job security, and adoption.
    - **Customer / Client / Public Sentiment**: Tracks demand for transparency, convenience, privacy, and 24/7 service access.
 3. **Actionable Use-Case Extraction**: Isolates real applications and maps them to a concrete problem-solution architecture (Problem Solved, How AI Operates, Target Users, Key Impact, and Verified Citation).
-4. **Dual Analysis Modes**:
-   - **Deep LLM Mode**: Google Gemini 1.5/2.0 Flash (`@google/generative-ai`) for rich semantic synthesis.
-   - **Zero-Config Heuristic Engine**: Built-in deterministic NLP analyzer for offline and out-of-the-box operation without requiring an API key.
+4. **Multi-LLM & Fallback Engine**:
+   - **OpenRouter API**: Access to 100+ free and cheap LLMs (e.g., `google/gemini-2.0-flash-exp:free`, `meta-llama/llama-3.3-70b-instruct:free`, `deepseek/deepseek-chat`, `openai/gpt-4o-mini`).
+   - **Google Gemini Direct**: Native `@google/generative-ai` integration.
+   - **Zero-Config Heuristic Engine**: Built-in deterministic NLP analyzer for offline operation without requiring an API key.
 
 ---
 

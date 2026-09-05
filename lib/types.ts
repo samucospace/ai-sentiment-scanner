@@ -9,6 +9,8 @@ export type IndustryKey =
   | 'manufacturing'
   | 'custom';
 
+export type LLMProvider = 'openrouter' | 'gemini';
+
 export interface FeedTrack {
   id: string;
   name: string;
@@ -47,11 +49,11 @@ export interface CustomerSentiment {
 
 export interface ExtractedUseCase {
   id: string;
-  title: string; // The real name of the use case (e.g. "Ambient Clinical Scribing & EHR Charting")
-  problemSolved: string; // The specific pain point or workflow bottleneck being addressed
-  howItWorks: string; // How the AI model or system accomplishes this
-  targetUsers: string; // Who directly uses it (e.g. "Primary care doctors, emergency nurses")
-  keyBenefit: string; // Measurable outcome or improvement
+  title: string; // Actionable tool name
+  problemSolved: string; // Pain point being addressed
+  howItWorks: string; // Technical workflow
+  targetUsers: string; // User roles
+  keyBenefit: string; // Measurable outcome
   industry: string;
   maturityStage: 'Production' | 'Pilot' | 'Research' | 'Policy/Banned';
   sourceTitle: string;
@@ -82,6 +84,8 @@ export interface DailyDigest {
 }
 
 export interface AppSettings {
+  provider?: LLMProvider;
+  openrouterApiKey?: string;
   geminiApiKey?: string;
   modelName?: string;
   customFeeds: FeedTrack[];

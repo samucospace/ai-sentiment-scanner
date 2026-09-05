@@ -1,35 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSettings, saveSettings } from '@/lib/db';
-import { AppSettings } from '@/lib/types';
+import { AppSettings, LLMProvider } from '@/lib/types';
 
 export async function GET() {
   const settings = getSettings();
-  // Mask API key for security
-  const maskedKey = settings.geminiApiKey
-    ? `${settings.geminiApiKey.slice(0, 4)}...${settings.geminiApiKey.slice(-4)}`
-    : '';
+  const mask = (key?: string) =>
+    key && key.length > 8 ? `${key.slice(0, 4)}...${key.slice(-4)}` : key ? '****' : '';
+
+  const hasKey = !!(settings.openrouterApiKey || settings.geminiApiKey || process.env.OPENROUTER_API_KEY || process.env.GEMINI_API_KEY);
 
   return NextResponse.json({
-    hasApiKey: !!settings.geminiApiKey,
-    maskedApiKey: maskedKey,
-    modelName: settings.modelName || 'gemini-1.5-flash',
+    provider: settings.provider || (settings.openrouterApiKey ? 'openrouter' : 'gemini'),
+    hasApiKey: hasKey,
+    hasOpenRouterKey: !!(settings.openrouterApiKey || process.env.OPENROUTER_API_KEY),
+    hasGeminiKey: !!(settings.geminiApiKey || process.env.GEMINI_API_KEY),
+    maskedOpenRouterKey: mask(settings.openrouterApiKey || process.env.OPENROUTER_API_KEY),
+    maskedGeminiKey: mask(settings.geminiApiKey || process.env.GEMINI_API_KEY),
+    modelName: settings.modelName || 'google/gemini-2.0-flash-exp:free',
   });
 }
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { geminiApiKey, modelName } = body as Partial<AppSettings>;
+    const { provider, openrouterApiKey, geminiApiKey, modelName } = body as Partial<AppSettings>;
 
     const update: Partial<AppSettings> = {};
+    if (provider !== undefined) update.provider = provider as LLMProvider;
+    if (openrouterApiKey !== undefined) update.openrouterApiKey = openrouterApiKey.trim();
     if (geminiApiKey !== undefined) update.geminiApiKey = geminiApiKey.trim();
-    if (modelName !== undefined) update.modelName = modelName;
+    if (modelName !== undefined) update.modelName = modelName.trim();
 
     const saved = saveSettings(update);
 
     return NextResponse.json({
       success: true,
-      hasApiKey: !!saved.geminiApiKey,
+      provider: saved.provider,
+      hasOpenRouterKey: !!saved.openrouterApiKey,
+      hasGeminiKey: !!saved.geminiApiKey,
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

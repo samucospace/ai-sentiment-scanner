@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
         feed.industryKey,
         feed.name,
         articles,
-        settings.geminiApiKey
+        settings
       );
 
       industryDigests.push(industryAnalysis);
