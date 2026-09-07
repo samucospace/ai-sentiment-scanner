@@ -7,6 +7,7 @@ import { LLMProvider } from '@/lib/types';
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSettingsSaved?: () => void;
 }
 
 const OPENROUTER_PRESETS = [
@@ -18,7 +19,7 @@ const OPENROUTER_PRESETS = [
   { id: 'anthropic/claude-3.5-haiku', label: 'Claude 3.5 Haiku', tag: 'FAST' },
 ];
 
-export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
+export function SettingsModal({ isOpen, onClose, onSettingsSaved }: SettingsModalProps) {
   const [provider, setProvider] = useState<LLMProvider>('openrouter');
   const [openRouterKey, setOpenRouterKey] = useState('');
   const [geminiKey, setGeminiKey] = useState('');
@@ -81,6 +82,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       const data = await res.json();
       if (data.success) {
         setSaveSuccess(true);
+        if (onSettingsSaved) {
+          onSettingsSaved();
+        }
         setTimeout(() => {
           setSaveSuccess(false);
           onClose();

@@ -200,6 +200,10 @@ export default function DashboardPage() {
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
+        onSettingsSaved={() => {
+          loadSettings();
+          handleScan(true);
+        }}
       />
 
       {selectedArticles && (
