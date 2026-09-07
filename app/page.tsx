@@ -29,6 +29,18 @@ export default function DashboardPage() {
     articles: RawArticle[];
   } | null>(null);
 
+  const [hasApiKey, setHasApiKey] = useState(false);
+
+  const loadSettings = async () => {
+    try {
+      const res = await fetch('/api/settings');
+      const data = await res.json();
+      setHasApiKey(!!data.hasApiKey);
+    } catch (err) {
+      console.error('Failed to load settings:', err);
+    }
+  };
+
   const fetchCurrentDigest = async () => {
     setIsLoading(true);
     setError(null);
@@ -99,6 +111,7 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchCurrentDigest();
     loadFeeds();
+    loadSettings();
   }, []);
 
   // Collect all use cases across all industries
@@ -116,6 +129,7 @@ export default function DashboardPage() {
         onOpenSettings={() => setIsSettingsOpen(true)}
         activeView={activeView}
         onChangeView={setActiveView}
+        hasApiKey={hasApiKey}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">

@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { executiveSummary, keyTakeaways } = synthesizeDailyDigest(fullIndustriesList);
+    const dominantEngine = fullIndustriesList[0]?.engineUsed || 'Heuristic Engine';
 
     const newDigest: DailyDigest = {
       id: `digest-${todayStr}`,
@@ -71,6 +72,7 @@ export async function POST(req: NextRequest) {
       keyTakeaways,
       industries: fullIndustriesList,
       totalArticlesScanned: totalArticles,
+      engineUsed: dominantEngine,
     };
 
     saveDailyDigest(newDigest);

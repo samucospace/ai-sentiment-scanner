@@ -40,7 +40,25 @@ export function ExecutiveBriefing({ digest }: ExecutiveBriefingProps) {
               <span>Daily AI Intelligence Briefing • {digest.date}</span>
             </div>
 
-            <div className="flex items-center gap-4 text-xs text-slate-300 font-mono">
+            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-300 font-mono">
+              {digest.engineUsed && (
+                <span
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md border text-[11px] font-sans font-medium ${
+                    digest.engineUsed.includes('Heuristic')
+                      ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                      : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                  }`}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      digest.engineUsed.includes('Heuristic')
+                        ? 'bg-amber-400'
+                        : 'bg-emerald-400 animate-pulse'
+                    }`}
+                  />
+                  <span>Engine: {digest.engineUsed}</span>
+                </span>
+              )}
               <span className="flex items-center gap-1.5">
                 <Newspaper className="w-3.5 h-3.5 text-slate-400" />
                 {digest.totalArticlesScanned} Google Alert stories parsed

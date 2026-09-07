@@ -213,6 +213,8 @@ export async function analyzeIndustryArticles(
           publishedDate: dateStr,
         }));
 
+        console.log(`[Scanner] 🟢 ${industryName}: Analyzed using OpenRouter LLM (${modelName})`);
+
         return {
           id: `${industryKey}-${dateStr}`,
           industryKey,
@@ -223,10 +225,13 @@ export async function analyzeIndustryArticles(
           useCases,
           topArticles: effectiveArticles.slice(0, 5),
           summary: parsed.summary,
+          engineUsed: `OpenRouter (${modelName})`,
         };
-      } catch (err) {
-        console.warn('OpenRouter LLM analysis error, falling back to heuristic engine:', err);
+      } catch (err: any) {
+        console.warn(`[Scanner] ⚠️ OpenRouter failed for ${industryName}: ${err.message}. Falling back to heuristic engine.`);
       }
+    } else {
+      console.log(`[Scanner] ℹ️ OpenRouter selected but no API key configured. Using heuristic engine.`);
     }
   }
 
@@ -234,9 +239,10 @@ export async function analyzeIndustryArticles(
   const geminiKey = settings?.geminiApiKey || process.env.GEMINI_API_KEY;
   if (geminiKey) {
     try {
+      const modelName = settings?.modelName?.includes('/') ? 'gemini-1.5-flash' : (settings?.modelName || 'gemini-1.5-flash');
       const genAI = new GoogleGenerativeAI(geminiKey);
       const model = genAI.getGenerativeModel({
-        model: settings?.modelName?.includes('/') ? 'gemini-1.5-flash' : (settings?.modelName || 'gemini-1.5-flash'),
+        model: modelName,
         generationConfig: {
           responseMimeType: 'application/json',
           temperature: 0.1,
@@ -261,6 +267,8 @@ export async function analyzeIndustryArticles(
         publishedDate: dateStr,
       }));
 
+      console.log(`[Scanner] 🟢 ${industryName}: Analyzed using Google Gemini Direct (${modelName})`);
+
       return {
         id: `${industryKey}-${dateStr}`,
         industryKey,
@@ -271,14 +279,18 @@ export async function analyzeIndustryArticles(
         useCases,
         topArticles: effectiveArticles.slice(0, 5),
         summary: parsed.summary,
+        engineUsed: `Google Gemini (${modelName})`,
       };
-    } catch (llmError) {
-      console.warn('Gemini LLM analysis error, using fallback heuristic engine:', llmError);
+    } catch (llmError: any) {
+      console.warn(`[Scanner] ⚠️ Gemini failed for ${industryName}: ${llmError.message}. Falling back to heuristic engine.`);
     }
   }
 
   // 3. High-Fidelity Domain-Aware Heuristic & NLP Extractor
-  return extractIndustryIntelligenceHeuristic(industryKey, industryName, effectiveArticles, dateStr);
+  console.log(`[Scanner] 🟡 ${industryName}: Analyzed using Zero-Config Heuristic Engine (no API key configured)`);
+  const result = extractIndustryIntelligenceHeuristic(industryKey, industryName, effectiveArticles, dateStr);
+  result.engineUsed = 'Heuristic Engine (Offline / No Key)';
+  return result;
 }
 
 /**

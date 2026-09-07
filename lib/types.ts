@@ -71,6 +71,7 @@ export interface IndustryDigest {
   useCases: ExtractedUseCase[];
   topArticles: RawArticle[];
   summary: string;
+  engineUsed?: string; // e.g. "OpenRouter (google/gemini-2.0-flash-exp:free)" or "Google Gemini" or "Heuristic Fallback Engine"
 }
 
 export interface DailyDigest {
@@ -81,6 +82,7 @@ export interface DailyDigest {
   keyTakeaways: string[];
   industries: IndustryDigest[];
   totalArticlesScanned: number;
+  engineUsed?: string;
 }
 
 export interface AppSettings {

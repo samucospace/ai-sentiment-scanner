@@ -20,6 +20,7 @@ interface NavbarProps {
   onOpenSettings: () => void;
   activeView: 'matrix' | 'usecases';
   onChangeView: (view: 'matrix' | 'usecases') => void;
+  hasApiKey?: boolean;
 }
 
 export function Navbar({
@@ -30,6 +31,7 @@ export function Navbar({
   onOpenSettings,
   activeView,
   onChangeView,
+  hasApiKey = false,
 }: NavbarProps) {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md">
@@ -104,10 +106,15 @@ export function Navbar({
           {/* Settings / API Key */}
           <button
             onClick={onOpenSettings}
-            title="LLM Settings & API Key"
-            className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            title={hasApiKey ? 'LLM API Key Active' : 'No API Key set (Running Heuristic Engine)'}
+            className="relative p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
           >
             <Settings className="w-4 h-4" />
+            <span
+              className={`absolute top-1.5 right-1.5 w-2 h-2 rounded-full border border-white dark:border-slate-900 ${
+                hasApiKey ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'
+              }`}
+            />
           </button>
         </div>
       </div>
