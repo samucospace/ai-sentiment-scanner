@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFeeds, getSettings, saveDailyDigest, getDailyDigest } from '@/lib/db';
 import { fetchFeedArticles } from '@/lib/feeds';
-import { analyzeIndustryArticles, synthesizeDailyDigest } from '@/lib/analyzer';
+import {
+  analyzeIndustryArticles,
+  analyzeAllIndustriesUnified,
+  synthesizeDailyDigest,
+} from '@/lib/analyzer';
 import { DailyDigest, IndustryDigest } from '@/lib/types';
 
 export async function POST(req: NextRequest) {
@@ -34,47 +38,49 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const industryDigests: IndustryDigest[] = [];
-    let totalArticles = 0;
+    // 1. Fetch RSS articles in parallel for all feeds
+    const feedWithArticles = await Promise.all(
+      activeFeeds.map(async (feed) => {
+        const articles = await fetchFeedArticles(feed, 8);
+        return { feed, articles };
+      })
+    );
 
-    // Scan each feed concurrently or in sequence
-    for (const feed of activeFeeds) {
-      const articles = await fetchFeedArticles(feed, 12);
-      totalArticles += articles.length;
+    let newDigest: DailyDigest;
 
-      const industryAnalysis = await analyzeIndustryArticles(
-        feed.industryKey,
-        feed.name,
-        articles,
+    // 2. If full scan, use unified single-call multi-industry analyzer (fast & 100% complete)
+    if (!industryKey) {
+      newDigest = await analyzeAllIndustriesUnified(feedWithArticles, settings);
+    } else {
+      // Partial single-industry scan
+      const target = feedWithArticles[0];
+      const singleIndustryAnalysis = await analyzeIndustryArticles(
+        target.feed.industryKey,
+        target.feed.name,
+        target.articles,
         settings
       );
 
-      industryDigests.push(industryAnalysis);
+      const remaining = existingDigest
+        ? existingDigest.industries.filter((i) => i.industryKey !== industryKey)
+        : [];
+      const fullIndustriesList = [...remaining, singleIndustryAnalysis];
+
+      const { executiveSummary, keyTakeaways } = synthesizeDailyDigest(fullIndustriesList);
+      const activeLLMEngine = fullIndustriesList.find((i) => i.engineUsed && !i.engineUsed.includes('Heuristic'))?.engineUsed;
+      const dominantEngine = activeLLMEngine || fullIndustriesList[0]?.engineUsed || 'Heuristic Engine';
+
+      newDigest = {
+        id: `digest-${todayStr}`,
+        date: todayStr,
+        createdAt: new Date().toISOString(),
+        executiveSummary,
+        keyTakeaways,
+        industries: fullIndustriesList,
+        totalArticlesScanned: target.articles.length,
+        engineUsed: dominantEngine,
+      };
     }
-
-    // Merge with any existing industries from today if doing a partial scan
-    let fullIndustriesList = industryDigests;
-    if (existingDigest && industryKey) {
-      const remaining = existingDigest.industries.filter(
-        (i) => i.industryKey !== industryKey
-      );
-      fullIndustriesList = [...remaining, ...industryDigests];
-    }
-
-    const { executiveSummary, keyTakeaways } = synthesizeDailyDigest(fullIndustriesList);
-    const activeLLMEngine = fullIndustriesList.find((i) => i.engineUsed && !i.engineUsed.includes('Heuristic'))?.engineUsed;
-    const dominantEngine = activeLLMEngine || fullIndustriesList[0]?.engineUsed || 'Heuristic Engine';
-
-    const newDigest: DailyDigest = {
-      id: `digest-${todayStr}`,
-      date: todayStr,
-      createdAt: new Date().toISOString(),
-      executiveSummary,
-      keyTakeaways,
-      industries: fullIndustriesList,
-      totalArticlesScanned: totalArticles,
-      engineUsed: dominantEngine,
-    };
 
     saveDailyDigest(newDigest);
 

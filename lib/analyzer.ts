@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { RawArticle, IndustryDigest, ExtractedUseCase, IndustryKey, AppSettings } from './types';
+import { RawArticle, IndustryDigest, ExtractedUseCase, IndustryKey, AppSettings, DailyDigest } from './types';
 
 interface LLMAnalysisResult {
   workerSentiment: {
@@ -54,20 +54,20 @@ function buildAnalysisPrompt(industryName: string, articles: RawArticle[]): stri
 Analyze these Google Alert news articles about AI in "${industryName}".
 
 CRITICAL INSTRUCTIONS FOR USE CASES:
-- DO NOT just copy or summarize article headlines (e.g., do NOT write "Doctors warned over AI" or "Company announces AI partnership").
-- IDENTIFY CONCRETE USE CASES: What is the specific technological application?
-- For each use case, clearly articulate:
-  1. "title": A concise, actionable name of the use case (e.g. "Ambient Clinical Scribing & EHR Auto-Documentation", "Autonomous Contract Redlining & Clause Risk Analysis", "Automated Student Essay Diagnostic Feedback").
-  2. "problemSolved": What real-world pain point or friction was slowing down humans? (e.g. "Physicians spend 2-3 hours per shift after hours typing clinical notes into EHR systems, causing severe burnout and distracted patient visits.")
-  3. "howItWorks": The technical mechanism (e.g. "Listens via microphone to doctor-patient conversation, identifies clinical entities, and writes structured SOAP notes in real-time.")
-  4. "targetUsers": Who directly uses this tool (e.g. "Primary Care Physicians, Emergency Nurses, Clinic Scribes").
-  5. "keyBenefit": What is the measurable outcome (e.g. "Cuts daily documentation overhead by 60% and reduces diagnostic coding errors.")
+- DO NOT just copy or summarize article headlines.
+- Identify 2 to 3 high-impact, concrete technological applications.
+- For each use case, provide:
+  1. "title": Concise, actionable tool/system name.
+  2. "problemSolved": Exact human friction or bottleneck being resolved.
+  3. "howItWorks": The underlying technical workflow/mechanism.
+  4. "targetUsers": Specific practitioner or customer roles.
+  5. "keyBenefit": Measurable outcome/efficiency gain.
   6. "maturityStage": "Production" | "Pilot" | "Research" | "Policy/Banned".
   7. "sourceTitle" & "sourceUrl": Exact citation.
 
 ARTICLES:
 ${articles
-  .slice(0, 15)
+  .slice(0, 8)
   .map(
     (a, idx) =>
       `[Article #${idx + 1}]
@@ -79,17 +79,17 @@ URL: ${a.link}`
   )
   .join('\n\n')}
 
-Respond in valid JSON matching this schema:
+Respond strictly in valid JSON matching this schema:
 {
   "workerSentiment": {
-    "score": number, // between -1.0 (very negative/fearful) and 1.0 (very enthusiastic/empowered)
-    "label": string, // e.g. "Skeptical & Guarded", "Productivity-Focused"
+    "score": number, // -1.0 to 1.0
+    "label": string,
     "rationale": string,
     "keyQuotes": string[],
     "professionsImpacted": string[]
   },
   "customerSentiment": {
-    "score": number, // between -1.0 and 1.0
+    "score": number, // -1.0 to 1.0
     "label": string,
     "rationale": string,
     "keyQuotes": string[]
@@ -124,8 +124,12 @@ async function callOpenRouter(
 
   for (const modelToAttempt of modelsToTry) {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s timeout
+
       const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
+        signal: controller.signal,
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
@@ -150,10 +154,17 @@ async function callOpenRouter(
         }),
       });
 
+      clearTimeout(timeoutId);
+
       if (!res.ok) {
         const errorBody = await res.text();
         lastError = `OpenRouter error (${res.status}) on ${modelToAttempt}: ${errorBody}`;
-        console.warn(`[OpenRouter] Model ${modelToAttempt} failed (${res.status}), trying fallback model...`);
+        if (res.status === 429) {
+          console.warn(`[OpenRouter] Rate limited on ${modelToAttempt} (429), pausing 1.5s before retry...`);
+          await new Promise((r) => setTimeout(r, 1500));
+        } else {
+          console.warn(`[OpenRouter] Model ${modelToAttempt} returned status ${res.status}, trying fallback model...`);
+        }
         continue;
       }
 
@@ -186,6 +197,236 @@ async function callOpenRouter(
   }
 
   throw new Error(lastError || 'All OpenRouter model attempts failed');
+}
+
+interface UnifiedAnalysisResult {
+  executiveSummary: string;
+  keyTakeaways: string[];
+  industries: Record<
+    string,
+    {
+      workerSentiment: {
+        score: number;
+        label: string;
+        rationale: string;
+        keyQuotes: string[];
+        professionsImpacted: string[];
+      };
+      customerSentiment: {
+        score: number;
+        label: string;
+        rationale: string;
+        keyQuotes: string[];
+      };
+      useCases: Array<{
+        title: string;
+        problemSolved: string;
+        howItWorks: string;
+        targetUsers: string;
+        keyBenefit: string;
+        maturityStage: 'Production' | 'Pilot' | 'Research' | 'Policy/Banned';
+        sourceTitle: string;
+        sourceUrl: string;
+      }>;
+      summary: string;
+    }
+  >;
+}
+
+export async function analyzeAllIndustriesUnified(
+  feedWithArticles: { feed: import('./types').FeedTrack; articles: RawArticle[] }[],
+  settings?: AppSettings
+): Promise<DailyDigest> {
+  const dateStr = new Date().toISOString().split('T')[0];
+  const totalArticles = feedWithArticles.reduce((sum, item) => sum + item.articles.length, 0);
+  const provider = settings?.provider || (settings?.openrouterApiKey || process.env.OPENROUTER_API_KEY ? 'openrouter' : 'gemini');
+
+  // Build unified prompt across all industries
+  const prompt = `You are a Principal AI Strategist and Market Intelligence Analyst.
+Analyze current Artificial Intelligence news across the following industries:
+
+${feedWithArticles
+  .map(({ feed, articles }) => {
+    const arts = articles.slice(0, 4);
+    return `=== Industry: ${feed.name} (Key: ${feed.industryKey}) ===
+Articles:
+${arts.map((a, idx) => `[#${idx + 1}] Title: ${a.title} | Snippet: ${a.snippet} | Source: ${a.source} | URL: ${a.link}`).join('\n')}`;
+  })
+  .join('\n\n')}
+
+CRITICAL INSTRUCTIONS:
+- For EACH industry, provide 2 actionable concrete use cases (with problemSolved, howItWorks, targetUsers, keyBenefit, maturityStage, sourceTitle, sourceUrl).
+- For EACH industry, provide dual workerSentiment and customerSentiment (-1.0 to 1.0 score, label, rationale, quotes).
+- Provide an overarching executiveSummary and 3 keyTakeaways.
+
+Respond strictly in valid JSON matching this schema:
+{
+  "executiveSummary": string,
+  "keyTakeaways": string[],
+  "industries": {
+    "healthcare": {
+      "workerSentiment": { "score": number, "label": string, "rationale": string, "keyQuotes": string[], "professionsImpacted": string[] },
+      "customerSentiment": { "score": number, "label": string, "rationale": string, "keyQuotes": string[] },
+      "useCases": [{ "title": string, "problemSolved": string, "howItWorks": string, "targetUsers": string, "keyBenefit": string, "maturityStage": "Production"|"Pilot"|"Research"|"Policy/Banned", "sourceTitle": string, "sourceUrl": string }],
+      "summary": string
+    }
+    // ... repeat for legal, education, finance, software, creative, retail, manufacturing
+  }
+}`;
+
+  // 1. Try Unified OpenRouter Analysis
+  if (provider === 'openrouter') {
+    const openRouterKey = settings?.openrouterApiKey || process.env.OPENROUTER_API_KEY;
+    if (openRouterKey) {
+      try {
+        const modelName = settings?.modelName || 'openrouter/free';
+        console.log(`[Scanner] 🚀 Executing unified multi-industry analysis via OpenRouter (${modelName})...`);
+        const parsed: UnifiedAnalysisResult = await callOpenRouter(openRouterKey, modelName, prompt) as any;
+
+        if (parsed && parsed.industries) {
+          const industryDigests: IndustryDigest[] = feedWithArticles.map(({ feed, articles }) => {
+            const rawInd = parsed.industries[feed.industryKey] || parsed.industries[feed.industryKey.toLowerCase()];
+            if (rawInd) {
+              const useCases: ExtractedUseCase[] = (rawInd.useCases || []).map((uc, i) => ({
+                id: `uc-${feed.industryKey}-${i}-${Date.now()}`,
+                title: uc.title,
+                problemSolved: uc.problemSolved,
+                howItWorks: uc.howItWorks,
+                targetUsers: uc.targetUsers,
+                keyBenefit: uc.keyBenefit,
+                industry: feed.name,
+                maturityStage: uc.maturityStage || 'Pilot',
+                sourceTitle: uc.sourceTitle || articles[0]?.source || 'News Source',
+                sourceUrl: uc.sourceUrl || articles[0]?.link || '#',
+                publishedDate: dateStr,
+              }));
+
+              return {
+                id: `${feed.industryKey}-${dateStr}`,
+                industryKey: feed.industryKey,
+                industryName: feed.name,
+                date: dateStr,
+                workerSentiment: rawInd.workerSentiment,
+                customerSentiment: rawInd.customerSentiment,
+                useCases,
+                topArticles: articles.slice(0, 5),
+                summary: rawInd.summary,
+                engineUsed: `OpenRouter (${modelName})`,
+              };
+            }
+
+            // Fallback for missing industry key in LLM json
+            return extractIndustryIntelligenceHeuristic(feed.industryKey, feed.name, articles, dateStr);
+          });
+
+          console.log(`[Scanner] 🟢 Unified multi-industry analysis completed successfully for all ${industryDigests.length} tracks!`);
+
+          return {
+            id: `digest-${dateStr}`,
+            date: dateStr,
+            createdAt: new Date().toISOString(),
+            executiveSummary: parsed.executiveSummary || 'Daily AI Intelligence across monitored sectors.',
+            keyTakeaways: parsed.keyTakeaways || [],
+            industries: industryDigests,
+            totalArticlesScanned: totalArticles,
+            engineUsed: `OpenRouter (${modelName})`,
+          };
+        }
+      } catch (err: any) {
+        console.warn(`[Scanner] ⚠️ Unified OpenRouter call failed: ${err.message}. Running fallback engine...`);
+      }
+    }
+  }
+
+  // 2. Try Gemini Unified Analysis
+  const geminiKey = settings?.geminiApiKey || process.env.GEMINI_API_KEY;
+  if (geminiKey) {
+    try {
+      const modelName = settings?.modelName?.includes('/') ? 'gemini-1.5-flash' : (settings?.modelName || 'gemini-1.5-flash');
+      const genAI = new GoogleGenerativeAI(geminiKey);
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.1,
+        },
+      });
+
+      console.log(`[Scanner] 🚀 Executing unified multi-industry analysis via Google Gemini (${modelName})...`);
+      const response = await model.generateContent(prompt);
+      const parsed: UnifiedAnalysisResult = JSON.parse(response.response.text());
+
+      if (parsed && parsed.industries) {
+        const industryDigests: IndustryDigest[] = feedWithArticles.map(({ feed, articles }) => {
+          const rawInd = parsed.industries[feed.industryKey] || parsed.industries[feed.industryKey.toLowerCase()];
+          if (rawInd) {
+            const useCases: ExtractedUseCase[] = (rawInd.useCases || []).map((uc, i) => ({
+              id: `uc-${feed.industryKey}-${i}-${Date.now()}`,
+              title: uc.title,
+              problemSolved: uc.problemSolved,
+              howItWorks: uc.howItWorks,
+              targetUsers: uc.targetUsers,
+              keyBenefit: uc.keyBenefit,
+              industry: feed.name,
+              maturityStage: uc.maturityStage || 'Pilot',
+              sourceTitle: uc.sourceTitle || articles[0]?.source || 'News Source',
+              sourceUrl: uc.sourceUrl || articles[0]?.link || '#',
+              publishedDate: dateStr,
+            }));
+
+            return {
+              id: `${feed.industryKey}-${dateStr}`,
+              industryKey: feed.industryKey,
+              industryName: feed.name,
+              date: dateStr,
+              workerSentiment: rawInd.workerSentiment,
+              customerSentiment: rawInd.customerSentiment,
+              useCases,
+              topArticles: articles.slice(0, 5),
+              summary: rawInd.summary,
+              engineUsed: `Google Gemini (${modelName})`,
+            };
+          }
+          return extractIndustryIntelligenceHeuristic(feed.industryKey, feed.name, articles, dateStr);
+        });
+
+        console.log(`[Scanner] 🟢 Unified Gemini analysis completed successfully for all ${industryDigests.length} tracks!`);
+
+        return {
+          id: `digest-${dateStr}`,
+          date: dateStr,
+          createdAt: new Date().toISOString(),
+          executiveSummary: parsed.executiveSummary || 'Daily AI Intelligence across monitored sectors.',
+          keyTakeaways: parsed.keyTakeaways || [],
+          industries: industryDigests,
+          totalArticlesScanned: totalArticles,
+          engineUsed: `Google Gemini (${modelName})`,
+        };
+      }
+    } catch (err: any) {
+      console.warn(`[Scanner] ⚠️ Unified Gemini call failed: ${err.message}. Running fallback engine...`);
+    }
+  }
+
+  // 3. Fallback: Heuristic Engine
+  console.log('[Scanner] 🟡 Running Heuristic Engine for all industry tracks.');
+  const industryDigests = feedWithArticles.map(({ feed, articles }) => {
+    const ind = extractIndustryIntelligenceHeuristic(feed.industryKey, feed.name, articles, dateStr);
+    ind.engineUsed = 'Heuristic Engine (Offline / No Key)';
+    return ind;
+  });
+
+  const { executiveSummary, keyTakeaways } = synthesizeDailyDigest(industryDigests);
+  return {
+    id: `digest-${dateStr}`,
+    date: dateStr,
+    createdAt: new Date().toISOString(),
+    executiveSummary,
+    keyTakeaways,
+    industries: industryDigests,
+    totalArticlesScanned: totalArticles,
+    engineUsed: 'Heuristic Engine (Offline / No Key)',
+  };
 }
 
 export async function analyzeIndustryArticles(
