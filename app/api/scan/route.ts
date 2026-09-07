@@ -62,7 +62,8 @@ export async function POST(req: NextRequest) {
     }
 
     const { executiveSummary, keyTakeaways } = synthesizeDailyDigest(fullIndustriesList);
-    const dominantEngine = fullIndustriesList[0]?.engineUsed || 'Heuristic Engine';
+    const activeLLMEngine = fullIndustriesList.find((i) => i.engineUsed && !i.engineUsed.includes('Heuristic'))?.engineUsed;
+    const dominantEngine = activeLLMEngine || fullIndustriesList[0]?.engineUsed || 'Heuristic Engine';
 
     const newDigest: DailyDigest = {
       id: `digest-${todayStr}`,

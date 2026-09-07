@@ -11,9 +11,9 @@ interface SettingsModalProps {
 }
 
 const OPENROUTER_PRESETS = [
-  { id: 'google/gemini-2.0-flash-exp:free', label: 'Gemini 2.0 Flash (Free)', tag: 'FREE' },
-  { id: 'meta-llama/llama-3.3-70b-instruct:free', label: 'Llama 3.3 70B (Free)', tag: 'FREE' },
-  { id: 'qwen/qwen-2.5-72b-instruct:free', label: 'Qwen 2.5 72B (Free)', tag: 'FREE' },
+  { id: 'openrouter/free', label: 'Auto Free Router', tag: 'FREE' },
+  { id: 'minimax/minimax-m3:free', label: 'MiniMax M3 (Free)', tag: 'FREE' },
+  { id: 'google/gemma-4-31b-it:free', label: 'Google Gemma 31B (Free)', tag: 'FREE' },
   { id: 'deepseek/deepseek-chat', label: 'DeepSeek V3 / Chat', tag: 'CHEAP' },
   { id: 'openai/gpt-4o-mini', label: 'OpenAI GPT-4o Mini', tag: 'CHEAP' },
   { id: 'anthropic/claude-3.5-haiku', label: 'Claude 3.5 Haiku', tag: 'FAST' },
@@ -23,7 +23,7 @@ export function SettingsModal({ isOpen, onClose, onSettingsSaved }: SettingsModa
   const [provider, setProvider] = useState<LLMProvider>('openrouter');
   const [openRouterKey, setOpenRouterKey] = useState('');
   const [geminiKey, setGeminiKey] = useState('');
-  const [modelName, setModelName] = useState('google/gemini-2.0-flash-exp:free');
+  const [modelName, setModelName] = useState('openrouter/free');
   const [customModel, setCustomModel] = useState('');
 
   const [hasOpenRouterKey, setHasOpenRouterKey] = useState(false);

@@ -115,42 +115,77 @@ async function callOpenRouter(
   modelName: string,
   prompt: string
 ): Promise<LLMAnalysisResult> {
-  const selectedModel = modelName || 'google/gemini-2.0-flash-exp:free';
-  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://github.com/samucospace/ai-sentiment-scanner',
-      'X-Title': 'AI Industry Sentiment & Use Case Scanner',
-    },
-    body: JSON.stringify({
-      model: selectedModel,
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You are a Principal AI Strategist and Market Intelligence Analyst. Always respond with valid JSON matching the requested schema strictly without markdown formatting wrappers.',
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.1,
-    }),
-  });
+  const primaryModel = modelName || 'openrouter/free';
+  const modelsToTry = [primaryModel];
+  if (primaryModel !== 'openrouter/free') modelsToTry.push('openrouter/free');
+  if (!modelsToTry.includes('minimax/minimax-m3:free')) modelsToTry.push('minimax/minimax-m3:free');
 
-  if (!res.ok) {
-    const errorBody = await res.text();
-    throw new Error(`OpenRouter error (${res.status}): ${errorBody}`);
+  let lastError = '';
+
+  for (const modelToAttempt of modelsToTry) {
+    try {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://github.com/samucospace/ai-sentiment-scanner',
+          'X-Title': 'AI Industry Sentiment & Use Case Scanner',
+        },
+        body: JSON.stringify({
+          model: modelToAttempt,
+          messages: [
+            {
+              role: 'system',
+              content:
+                'You are a Principal AI Strategist and Market Intelligence Analyst. Always respond strictly in valid JSON matching the requested schema without conversational filler.',
+            },
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.1,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorBody = await res.text();
+        lastError = `OpenRouter error (${res.status}) on ${modelToAttempt}: ${errorBody}`;
+        console.warn(`[OpenRouter] Model ${modelToAttempt} failed (${res.status}), trying fallback model...`);
+        continue;
+      }
+
+      const json = await res.json();
+      const rawText = json.choices?.[0]?.message?.content || '{}';
+      
+      // Clean possible markdown code fences
+      let cleanJson = rawText.trim();
+      if (cleanJson.startsWith('```json')) {
+        cleanJson = cleanJson.slice(7);
+      } else if (cleanJson.startsWith('```')) {
+        cleanJson = cleanJson.slice(3);
+      }
+      if (cleanJson.endsWith('```')) {
+        cleanJson = cleanJson.slice(0, -3);
+      }
+      cleanJson = cleanJson.trim();
+
+      // Extract outermost JSON object if surrounded by extra text
+      const firstBrace = cleanJson.indexOf('{');
+      const lastBrace = cleanJson.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1) {
+        cleanJson = cleanJson.slice(firstBrace, lastBrace + 1);
+      }
+
+      return JSON.parse(cleanJson);
+    } catch (err: any) {
+      lastError = err.message;
+    }
   }
 
-  const json = await res.json();
-  const rawText = json.choices?.[0]?.message?.content || '{}';
-  const cleanJson = rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
-  return JSON.parse(cleanJson);
+  throw new Error(lastError || 'All OpenRouter model attempts failed');
 }
 
 export async function analyzeIndustryArticles(
@@ -196,7 +231,7 @@ export async function analyzeIndustryArticles(
     const openRouterKey = settings?.openrouterApiKey || process.env.OPENROUTER_API_KEY;
     if (openRouterKey) {
       try {
-        const modelName = settings?.modelName || 'google/gemini-2.0-flash-exp:free';
+        const modelName = settings?.modelName || 'openrouter/free';
         const parsed = await callOpenRouter(openRouterKey, modelName, prompt);
 
         const useCases: ExtractedUseCase[] = (parsed.useCases || []).map((uc, i) => ({
