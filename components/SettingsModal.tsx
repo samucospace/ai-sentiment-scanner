@@ -11,12 +11,11 @@ interface SettingsModalProps {
 }
 
 const OPENROUTER_PRESETS = [
+  { id: 'nvidia/nemotron-3-super-120b-a12b:free', label: 'Nvidia Nemotron Super 120B (Free & Fast)', tag: 'FREE' },
   { id: 'openrouter/free', label: 'Auto Free Router', tag: 'FREE' },
-  { id: 'minimax/minimax-m3:free', label: 'MiniMax M3 (Free)', tag: 'FREE' },
-  { id: 'google/gemma-4-31b-it:free', label: 'Google Gemma 31B (Free)', tag: 'FREE' },
-  { id: 'deepseek/deepseek-chat', label: 'DeepSeek V3 / Chat', tag: 'CHEAP' },
+  { id: 'deepseek/deepseek-chat', label: 'DeepSeek V3 / Chat ($0.14/1M)', tag: 'CHEAP' },
   { id: 'openai/gpt-4o-mini', label: 'OpenAI GPT-4o Mini', tag: 'CHEAP' },
-  { id: 'anthropic/claude-3.5-haiku', label: 'Claude 3.5 Haiku', tag: 'FAST' },
+  { id: 'nvidia/nemotron-3.5-lightning:free', label: 'Nvidia Nemotron 3.5 Lightning (Free)', tag: 'FREE' },
 ];
 
 export function SettingsModal({ isOpen, onClose, onSettingsSaved }: SettingsModalProps) {

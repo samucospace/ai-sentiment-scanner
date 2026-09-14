@@ -32,9 +32,23 @@ function ensureDataFile(): DatabaseSchema {
     const content = fs.readFileSync(DB_FILE, 'utf-8');
     const parsed = JSON.parse(content) as DatabaseSchema;
     if (!parsed.digests) parsed.digests = {};
-    if (!parsed.settings) parsed.settings = { customFeeds: DEFAULT_FEEDS };
+    let feedsUpdated = false;
     if (!parsed.settings.customFeeds || parsed.settings.customFeeds.length === 0) {
       parsed.settings.customFeeds = DEFAULT_FEEDS;
+      feedsUpdated = true;
+    } else {
+      for (const defaultFeed of DEFAULT_FEEDS) {
+        const exists = parsed.settings.customFeeds.some(
+          (f) => f.id === defaultFeed.id || f.industryKey === defaultFeed.industryKey
+        );
+        if (!exists) {
+          parsed.settings.customFeeds.push(defaultFeed);
+          feedsUpdated = true;
+        }
+      }
+    }
+    if (feedsUpdated) {
+      writeDataFile(parsed);
     }
     return parsed;
   } catch (err) {

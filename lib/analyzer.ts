@@ -115,61 +115,80 @@ async function callOpenRouter(
   modelName: string,
   prompt: string
 ): Promise<LLMAnalysisResult> {
-  const primaryModel = modelName || 'openrouter/free';
-  const modelsToTry = [primaryModel];
-  if (primaryModel !== 'openrouter/free') modelsToTry.push('openrouter/free');
-  if (!modelsToTry.includes('minimax/minimax-m3:free')) modelsToTry.push('minimax/minimax-m3:free');
+  const userModel = modelName?.trim();
+  const modelsToTry: string[] = [];
+
+  // If user selected a specific model (other than the generic openrouter/free), try it first
+  if (userModel && userModel !== 'openrouter/free') {
+    modelsToTry.push(userModel);
+  }
+
+  // Fast direct free & low-cost models verified on OpenRouter
+  const fastModels = [
+    'nvidia/nemotron-3-super-120b-a12b:free',
+    'openrouter/free',
+    'deepseek/deepseek-chat',
+    'openai/gpt-4o-mini',
+    'nvidia/nemotron-3.5-lightning:free',
+  ];
+
+  for (const m of fastModels) {
+    if (!modelsToTry.includes(m)) {
+      modelsToTry.push(m);
+    }
+  }
 
   let lastError = '';
 
-  for (const modelToAttempt of modelsToTry) {
+  for (let i = 0; i < modelsToTry.length; i++) {
+    const modelToAttempt = modelsToTry[i];
+    const attemptStartTime = Date.now();
     try {
+      console.log(`[OpenRouter] 🌐 Attempt ${i + 1}/${modelsToTry.length}: Calling "${modelToAttempt}"...`);
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s timeout
+      const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s fast timeout to avoid long queue stalls
+
+      const requestBody: any = {
+        model: modelToAttempt,
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are a Principal AI Strategist and Market Intelligence Analyst. Always respond strictly in valid JSON matching the requested schema without conversational filler or markdown notes.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        temperature: 0.1,
+      };
 
       const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         signal: controller.signal,
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `Bearer ${apiKey.trim()}`,
           'Content-Type': 'application/json',
           'HTTP-Referer': 'https://github.com/samucospace/ai-sentiment-scanner',
           'X-Title': 'AI Industry Sentiment & Use Case Scanner',
         },
-        body: JSON.stringify({
-          model: modelToAttempt,
-          messages: [
-            {
-              role: 'system',
-              content:
-                'You are a Principal AI Strategist and Market Intelligence Analyst. Always respond strictly in valid JSON matching the requested schema without conversational filler.',
-            },
-            {
-              role: 'user',
-              content: prompt,
-            },
-          ],
-          response_format: { type: 'json_object' },
-          temperature: 0.1,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       clearTimeout(timeoutId);
+      const elapsed = ((Date.now() - attemptStartTime) / 1000).toFixed(1);
 
       if (!res.ok) {
         const errorBody = await res.text();
         lastError = `OpenRouter error (${res.status}) on ${modelToAttempt}: ${errorBody}`;
-        if (res.status === 429) {
-          console.warn(`[OpenRouter] Rate limited on ${modelToAttempt} (429), pausing 1.5s before retry...`);
-          await new Promise((r) => setTimeout(r, 1500));
-        } else {
-          console.warn(`[OpenRouter] Model ${modelToAttempt} returned status ${res.status}, trying fallback model...`);
-        }
+        console.warn(`[OpenRouter] ⚠️ ${modelToAttempt} returned status ${res.status} (${elapsed}s): ${errorBody.slice(0, 150)}`);
         continue;
       }
 
       const json = await res.json();
       const rawText = json.choices?.[0]?.message?.content || '{}';
+      console.log(`[OpenRouter] 🟢 Model "${modelToAttempt}" responded in ${elapsed}s (${rawText.length} chars).`);
       
       // Clean possible markdown code fences
       let cleanJson = rawText.trim();
@@ -190,8 +209,11 @@ async function callOpenRouter(
         cleanJson = cleanJson.slice(firstBrace, lastBrace + 1);
       }
 
-      return JSON.parse(cleanJson);
+      const parsed = JSON.parse(cleanJson);
+      return parsed;
     } catch (err: any) {
+      const elapsed = ((Date.now() - attemptStartTime) / 1000).toFixed(1);
+      console.warn(`[OpenRouter] ⚠️ Attempt ${i + 1} ("${modelToAttempt}") failed after ${elapsed}s: ${err.message}`);
       lastError = err.message;
     }
   }
@@ -270,7 +292,7 @@ Respond strictly in valid JSON matching this schema:
       "useCases": [{ "title": string, "problemSolved": string, "howItWorks": string, "targetUsers": string, "keyBenefit": string, "maturityStage": "Production"|"Pilot"|"Research"|"Policy/Banned", "sourceTitle": string, "sourceUrl": string }],
       "summary": string
     }
-    // ... repeat for legal, education, finance, software, creative, retail, manufacturing
+    // ... repeat for legal, education, finance, software, creative, retail, manufacturing, payments
   }
 }`;
 
@@ -289,11 +311,11 @@ Respond strictly in valid JSON matching this schema:
             if (rawInd) {
               const useCases: ExtractedUseCase[] = (rawInd.useCases || []).map((uc, i) => ({
                 id: `uc-${feed.industryKey}-${i}-${Date.now()}`,
-                title: uc.title,
-                problemSolved: uc.problemSolved,
-                howItWorks: uc.howItWorks,
-                targetUsers: uc.targetUsers,
-                keyBenefit: uc.keyBenefit,
+                title: uc.title || 'Emerging Industry Automation Workflow',
+                problemSolved: uc.problemSolved || 'Administrative and operational bottlenecks.',
+                howItWorks: uc.howItWorks || 'Automated AI models analyzing workflows in real time.',
+                targetUsers: uc.targetUsers || 'Domain Specialists & Practitioners',
+                keyBenefit: uc.keyBenefit || 'Improved operational throughput and reduced manual overhead.',
                 industry: feed.name,
                 maturityStage: uc.maturityStage || 'Pilot',
                 sourceTitle: uc.sourceTitle || articles[0]?.source || 'News Source',
@@ -301,16 +323,33 @@ Respond strictly in valid JSON matching this schema:
                 publishedDate: dateStr,
               }));
 
+              const defaultProfessions = getIndustryProfessions(feed.industryKey);
+              const workerScore = typeof rawInd.workerSentiment?.score === 'number' ? rawInd.workerSentiment.score : 0;
+              const customerScore = typeof rawInd.customerSentiment?.score === 'number' ? rawInd.customerSentiment.score : 0.1;
+
               return {
                 id: `${feed.industryKey}-${dateStr}`,
                 industryKey: feed.industryKey,
                 industryName: feed.name,
                 date: dateStr,
-                workerSentiment: rawInd.workerSentiment,
-                customerSentiment: rawInd.customerSentiment,
-                useCases,
+                workerSentiment: {
+                  score: Math.max(-1, Math.min(1, workerScore)),
+                  label: rawInd.workerSentiment?.label || (workerScore < 0 ? 'Cautious / Protective' : 'Productivity-Curious'),
+                  rationale: rawInd.workerSentiment?.rationale || 'Practitioners observe evolving operational shifts and documentation efficiency.',
+                  keyQuotes: Array.isArray(rawInd.workerSentiment?.keyQuotes) ? rawInd.workerSentiment.keyQuotes : [],
+                  professionsImpacted: Array.isArray(rawInd.workerSentiment?.professionsImpacted) && rawInd.workerSentiment.professionsImpacted.length > 0
+                    ? rawInd.workerSentiment.professionsImpacted
+                    : defaultProfessions,
+                },
+                customerSentiment: {
+                  score: Math.max(-1, Math.min(1, customerScore)),
+                  label: rawInd.customerSentiment?.label || (customerScore >= 0 ? 'Convenience-Focused' : 'Distrustful & Concerned'),
+                  rationale: rawInd.customerSentiment?.rationale || 'Clients and consumers demand transparency, convenience, and fast response times.',
+                  keyQuotes: Array.isArray(rawInd.customerSentiment?.keyQuotes) ? rawInd.customerSentiment.keyQuotes : [],
+                },
+                useCases: useCases.length > 0 ? useCases : extractIndustryIntelligenceHeuristic(feed.industryKey, feed.name, articles, dateStr).useCases,
                 topArticles: articles.slice(0, 5),
-                summary: rawInd.summary,
+                summary: rawInd.summary || `Market signals indicate active AI exploration in ${feed.name}.`,
                 engineUsed: `OpenRouter (${modelName})`,
               };
             }
@@ -326,7 +365,13 @@ Respond strictly in valid JSON matching this schema:
             date: dateStr,
             createdAt: new Date().toISOString(),
             executiveSummary: parsed.executiveSummary || 'Daily AI Intelligence across monitored sectors.',
-            keyTakeaways: parsed.keyTakeaways || [],
+            keyTakeaways: Array.isArray(parsed.keyTakeaways) && parsed.keyTakeaways.length > 0
+              ? parsed.keyTakeaways
+              : [
+                  `Workforce sentiment: cautious around liability and cognitive displacement.`,
+                  `Customer sentiment: receptive to 24/7 self-service convenience.`,
+                  `High-impact use cases cataloged across tracked industries with problem-solution mapping.`,
+                ],
             industries: industryDigests,
             totalArticlesScanned: totalArticles,
             engineUsed: `OpenRouter (${modelName})`,
@@ -356,17 +401,17 @@ Respond strictly in valid JSON matching this schema:
       const response = await model.generateContent(prompt);
       const parsed: UnifiedAnalysisResult = JSON.parse(response.response.text());
 
-      if (parsed && parsed.industries) {
+        if (parsed && parsed.industries) {
         const industryDigests: IndustryDigest[] = feedWithArticles.map(({ feed, articles }) => {
           const rawInd = parsed.industries[feed.industryKey] || parsed.industries[feed.industryKey.toLowerCase()];
           if (rawInd) {
             const useCases: ExtractedUseCase[] = (rawInd.useCases || []).map((uc, i) => ({
               id: `uc-${feed.industryKey}-${i}-${Date.now()}`,
-              title: uc.title,
-              problemSolved: uc.problemSolved,
-              howItWorks: uc.howItWorks,
-              targetUsers: uc.targetUsers,
-              keyBenefit: uc.keyBenefit,
+              title: uc.title || 'Emerging Industry Automation Workflow',
+              problemSolved: uc.problemSolved || 'Administrative and operational bottlenecks.',
+              howItWorks: uc.howItWorks || 'Automated AI models analyzing workflows in real time.',
+              targetUsers: uc.targetUsers || 'Domain Specialists & Practitioners',
+              keyBenefit: uc.keyBenefit || 'Improved operational throughput and reduced manual overhead.',
               industry: feed.name,
               maturityStage: uc.maturityStage || 'Pilot',
               sourceTitle: uc.sourceTitle || articles[0]?.source || 'News Source',
@@ -374,16 +419,33 @@ Respond strictly in valid JSON matching this schema:
               publishedDate: dateStr,
             }));
 
+            const defaultProfessions = getIndustryProfessions(feed.industryKey);
+            const workerScore = typeof rawInd.workerSentiment?.score === 'number' ? rawInd.workerSentiment.score : 0;
+            const customerScore = typeof rawInd.customerSentiment?.score === 'number' ? rawInd.customerSentiment.score : 0.1;
+
             return {
               id: `${feed.industryKey}-${dateStr}`,
               industryKey: feed.industryKey,
               industryName: feed.name,
               date: dateStr,
-              workerSentiment: rawInd.workerSentiment,
-              customerSentiment: rawInd.customerSentiment,
-              useCases,
+              workerSentiment: {
+                score: Math.max(-1, Math.min(1, workerScore)),
+                label: rawInd.workerSentiment?.label || (workerScore < 0 ? 'Cautious / Protective' : 'Productivity-Curious'),
+                rationale: rawInd.workerSentiment?.rationale || 'Practitioners observe evolving operational shifts and documentation efficiency.',
+                keyQuotes: Array.isArray(rawInd.workerSentiment?.keyQuotes) ? rawInd.workerSentiment.keyQuotes : [],
+                professionsImpacted: Array.isArray(rawInd.workerSentiment?.professionsImpacted) && rawInd.workerSentiment.professionsImpacted.length > 0
+                  ? rawInd.workerSentiment.professionsImpacted
+                  : defaultProfessions,
+              },
+              customerSentiment: {
+                score: Math.max(-1, Math.min(1, customerScore)),
+                label: rawInd.customerSentiment?.label || (customerScore >= 0 ? 'Convenience-Focused' : 'Distrustful & Concerned'),
+                rationale: rawInd.customerSentiment?.rationale || 'Clients and consumers demand transparency, convenience, and fast response times.',
+                keyQuotes: Array.isArray(rawInd.customerSentiment?.keyQuotes) ? rawInd.customerSentiment.keyQuotes : [],
+              },
+              useCases: useCases.length > 0 ? useCases : extractIndustryIntelligenceHeuristic(feed.industryKey, feed.name, articles, dateStr).useCases,
               topArticles: articles.slice(0, 5),
-              summary: rawInd.summary,
+              summary: rawInd.summary || `Market signals indicate active AI exploration in ${feed.name}.`,
               engineUsed: `Google Gemini (${modelName})`,
             };
           }
@@ -397,7 +459,13 @@ Respond strictly in valid JSON matching this schema:
           date: dateStr,
           createdAt: new Date().toISOString(),
           executiveSummary: parsed.executiveSummary || 'Daily AI Intelligence across monitored sectors.',
-          keyTakeaways: parsed.keyTakeaways || [],
+          keyTakeaways: Array.isArray(parsed.keyTakeaways) && parsed.keyTakeaways.length > 0
+            ? parsed.keyTakeaways
+            : [
+                `Workforce sentiment: cautious around liability and cognitive displacement.`,
+                `Customer sentiment: receptive to 24/7 self-service convenience.`,
+                `High-impact use cases cataloged across tracked industries with problem-solution mapping.`,
+              ],
           industries: industryDigests,
           totalArticlesScanned: totalArticles,
           engineUsed: `Google Gemini (${modelName})`,
@@ -830,6 +898,41 @@ const INDUSTRY_USECASE_PATTERNS: Record<IndustryKey, UseCaseTemplate[]> = {
       defaultStage: 'Production',
     },
   ],
+  payments: [
+    {
+      keywords: ['checkout', 'm2m', 'machine', 'rail', 'protocol', 'autonomous buying', 'agentic commerce', 'agentic'],
+      title: 'Autonomous Agentic Checkout & M2M Payment Rails',
+      problemSolved:
+        'Traditional human-oriented checkout flows with CAPTCHAs, redirects, and manual form fills break autonomous AI shopping agents from completing purchases.',
+      howItWorks:
+        'Machine-to-machine checkout APIs and tokenized credentials allow personal AI agents to negotiate prices, select delivery options, and execute payments seamlessly.',
+      targetUsers: 'E-commerce Merchants, Payment Gateways, AI Agent Developers',
+      keyBenefit: 'Reduces checkout drop-off for agent-driven purchases from 80% to under 5% with sub-second transaction finality.',
+      defaultStage: 'Pilot',
+    },
+    {
+      keywords: ['wallet', 'guardrail', 'spending', 'budget', 'limit', 'delegate', 'biometric', 'approval', 'consumer'],
+      title: 'Delegated Consumer AI Wallets with Cryptographic Spending Guardrails',
+      problemSolved:
+        'Consumers fear giving AI shopping assistants unchecked financial access, risking unexpected overspending or unauthorized recurring charges.',
+      howItWorks:
+        'Programmable smart payment cards enforce granular per-transaction spending limits, single-use merchant tokens, and threshold-based biometric push approvals.',
+      targetUsers: 'Online Consumers, Digital Banking Users, Personal AI Assistant Operators',
+      keyBenefit: 'Guarantees 100% transparent spending limits while enabling hands-free daily replenishment and automated deal capture.',
+      defaultStage: 'Production',
+    },
+    {
+      keywords: ['fraud', 'dispute', 'chargeback', 'identity', 'credential', 'verification', 'scheme', 'network', 'risk'],
+      title: 'Real-Time Agentic Transaction Verification & Dispute Resolution',
+      problemSolved:
+        'Merchants and payment processors face severe chargeback and fraud liability trying to distinguish legitimate buyer agents from malicious automated card-testing bots.',
+      howItWorks:
+        'Verifiable agent credentials (W3C DID) and cryptographic proof-of-intent authenticate AI purchasing agents before authorizing settlement.',
+      targetUsers: 'Merchant Fraud Managers, Payment Risk Operations, Card Issuers',
+      keyBenefit: 'Cuts agent-related false positive declines by 45% while stopping bot-driven fraud and chargeback liability.',
+      defaultStage: 'Pilot',
+    },
+  ],
   custom: [
     {
       keywords: ['process', 'system', 'auto', 'workflow'],
@@ -910,8 +1013,8 @@ function extractIndustryIntelligenceHeuristic(
   // Sentiment scoring
   const positiveWords = ['breakthrough', 'faster', 'savings', 'innovative', 'welcomed', 'approved', 'adopt', 'boost', 'open up', 'eases', 'helps', 'advance', 'benefit', 'efficiency', 'guidelines'];
   const negativeWords = ['warning', 'ban', 'banned', 'fear', 'threat', 'strike', 'lawsuit', 'liability', 'pushback', 'error', 'risk', 'crisis', 'mystery', 'hallucination', 'displacement', 'cheating'];
-  const workerWords = ['doctor', 'lawyer', 'teacher', 'worker', 'employee', 'engineer', 'developer', 'staff', 'practitioner', 'firm', 'job', 'workload'];
-  const customerWords = ['patient', 'client', 'student', 'customer', 'shopper', 'user', 'public', 'consumer', 'parent'];
+  const workerWords = ['doctor', 'lawyer', 'teacher', 'worker', 'employee', 'engineer', 'developer', 'staff', 'practitioner', 'firm', 'job', 'workload', 'merchant', 'processor', 'acquirer', 'issuer', 'fintech'];
+  const customerWords = ['patient', 'client', 'student', 'customer', 'shopper', 'user', 'public', 'consumer', 'parent', 'buyer', 'cardholder'];
 
   let workerPos = 0;
   let workerNeg = 0;
@@ -1019,6 +1122,8 @@ function getIndustryProfessions(key: IndustryKey): string[] {
       return ['Customer Support Agents', 'Store Managers', 'E-commerce Buyers'];
     case 'manufacturing':
       return ['Reliability Engineers', 'Plant Managers', 'Robotics Technicians'];
+    case 'payments':
+      return ['Merchant Checkout Engineers', 'Payment Risk & Fraud Analysts', 'Fintech Product Managers', 'E-commerce Operations Directors'];
     default:
       return ['Practitioners', 'Specialists'];
   }

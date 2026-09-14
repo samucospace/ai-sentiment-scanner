@@ -12,6 +12,7 @@ import {
   Palette,
   ShoppingBag,
   Cpu,
+  CreditCard,
   Sparkles,
   ExternalLink,
   BookOpen,
@@ -33,6 +34,7 @@ const ICON_MAP: Record<string, any> = {
   creative: Palette,
   retail: ShoppingBag,
   manufacturing: Cpu,
+  payments: CreditCard,
 };
 
 export function SentimentMatrix({ industries, onSelectArticles }: SentimentMatrixProps) {
@@ -131,16 +133,16 @@ export function SentimentMatrix({ industries, onSelectArticles }: SentimentMatri
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
                   <SentimentGauge
                     type="worker"
-                    score={industry.workerSentiment.score}
-                    label={industry.workerSentiment.label}
-                    rationale={industry.workerSentiment.rationale}
-                    professions={industry.workerSentiment.professionsImpacted}
+                    score={industry.workerSentiment?.score ?? 0}
+                    label={industry.workerSentiment?.label || 'Mixed / Observant'}
+                    rationale={industry.workerSentiment?.rationale || 'Practitioner feedback being monitored.'}
+                    professions={industry.workerSentiment?.professionsImpacted || []}
                   />
                   <SentimentGauge
                     type="customer"
-                    score={industry.customerSentiment.score}
-                    label={industry.customerSentiment.label}
-                    rationale={industry.customerSentiment.rationale}
+                    score={industry.customerSentiment?.score ?? 0}
+                    label={industry.customerSentiment?.label || 'Receptive'}
+                    rationale={industry.customerSentiment?.rationale || 'Client and end-user adoption signals.'}
                   />
                 </div>
 

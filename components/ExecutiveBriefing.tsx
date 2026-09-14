@@ -9,20 +9,22 @@ interface ExecutiveBriefingProps {
 }
 
 export function ExecutiveBriefing({ digest }: ExecutiveBriefingProps) {
-  const totalUseCases = digest.industries.reduce(
-    (acc, ind) => acc + ind.useCases.length,
+  const industries = digest?.industries || [];
+
+  const totalUseCases = industries.reduce(
+    (acc, ind) => acc + (ind?.useCases?.length || 0),
     0
   );
 
   const avgWorkerSentiment = (
-    (digest.industries.reduce((acc, ind) => acc + ind.workerSentiment.score, 0) /
-      Math.max(1, digest.industries.length)) *
+    (industries.reduce((acc, ind) => acc + (ind?.workerSentiment?.score ?? 0), 0) /
+      Math.max(1, industries.length)) *
     100
   ).toFixed(0);
 
   const avgCustomerSentiment = (
-    (digest.industries.reduce((acc, ind) => acc + ind.customerSentiment.score, 0) /
-      Math.max(1, digest.industries.length)) *
+    (industries.reduce((acc, ind) => acc + (ind?.customerSentiment?.score ?? 0), 0) /
+      Math.max(1, industries.length)) *
     100
   ).toFixed(0);
 
@@ -145,7 +147,7 @@ export function ExecutiveBriefing({ digest }: ExecutiveBriefingProps) {
             </span>
           </div>
           <div className="mt-2 text-[11px] text-slate-500">
-            Healthcare, Legal, Education, Finance, Tech & more.
+            Healthcare, Legal, Payments, Finance, Tech & more.
           </div>
         </div>
       </div>

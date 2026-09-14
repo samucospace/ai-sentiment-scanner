@@ -16,7 +16,7 @@ export async function GET() {
     hasGeminiKey: !!(settings.geminiApiKey || process.env.GEMINI_API_KEY),
     maskedOpenRouterKey: mask(settings.openrouterApiKey || process.env.OPENROUTER_API_KEY),
     maskedGeminiKey: mask(settings.geminiApiKey || process.env.GEMINI_API_KEY),
-    modelName: settings.modelName || 'google/gemini-2.0-flash-exp:free',
+    modelName: settings.modelName || 'nvidia/nemotron-3-super-120b-a12b:free',
   });
 }
 
