@@ -118,21 +118,21 @@ async function callOpenRouter(
   const userModel = modelName?.trim();
   const modelsToTry: string[] = [];
 
-  // If user selected a specific model (other than the generic openrouter/free), try it first
-  if (userModel && userModel !== 'openrouter/free') {
+  // If user selected a specific model, try it first
+  if (userModel) {
     modelsToTry.push(userModel);
   }
 
   // Fast direct free & low-cost models verified on OpenRouter
-  const fastModels = [
-    'nvidia/nemotron-3-super-120b-a12b:free',
+  const fallbackModels = [
     'openrouter/free',
+    'nvidia/nemotron-3.5-lightning:free',
+    'nvidia/nemotron-3-super-120b-a12b:free',
     'deepseek/deepseek-chat',
     'openai/gpt-4o-mini',
-    'nvidia/nemotron-3.5-lightning:free',
   ];
 
-  for (const m of fastModels) {
+  for (const m of fallbackModels) {
     if (!modelsToTry.includes(m)) {
       modelsToTry.push(m);
     }
@@ -146,7 +146,7 @@ async function callOpenRouter(
     try {
       console.log(`[OpenRouter] 🌐 Attempt ${i + 1}/${modelsToTry.length}: Calling "${modelToAttempt}"...`);
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s fast timeout to avoid long queue stalls
+      const timeoutId = setTimeout(() => controller.abort(), 35000); // 35s timeout for complete multi-industry JSON generation
 
       const requestBody: any = {
         model: modelToAttempt,
@@ -181,13 +181,28 @@ async function callOpenRouter(
 
       if (!res.ok) {
         const errorBody = await res.text();
-        lastError = `OpenRouter error (${res.status}) on ${modelToAttempt}: ${errorBody}`;
+        lastError = `OpenRouter HTTP error (${res.status}) on ${modelToAttempt}: ${errorBody.slice(0, 200)}`;
         console.warn(`[OpenRouter] ⚠️ ${modelToAttempt} returned status ${res.status} (${elapsed}s): ${errorBody.slice(0, 150)}`);
         continue;
       }
 
       const json = await res.json();
-      const rawText = json.choices?.[0]?.message?.content || '{}';
+
+      // Check for upstream API error in JSON body (e.g. 503 upstream overloaded)
+      if (json.error) {
+        const errMsg = json.error.message || JSON.stringify(json.error);
+        lastError = `OpenRouter API error on ${modelToAttempt}: ${errMsg}`;
+        console.warn(`[OpenRouter] ⚠️ ${modelToAttempt} returned error payload (${elapsed}s): ${errMsg}`);
+        continue;
+      }
+
+      const rawText = json.choices?.[0]?.message?.content;
+      if (!rawText || !rawText.trim()) {
+        lastError = `OpenRouter model ${modelToAttempt} returned empty choice content`;
+        console.warn(`[OpenRouter] ⚠️ ${lastError}`);
+        continue;
+      }
+
       console.log(`[OpenRouter] 🟢 Model "${modelToAttempt}" responded in ${elapsed}s (${rawText.length} chars).`);
       
       // Clean possible markdown code fences
@@ -210,6 +225,10 @@ async function callOpenRouter(
       }
 
       const parsed = JSON.parse(cleanJson);
+      if (!parsed || typeof parsed !== 'object' || Object.keys(parsed).length === 0) {
+        throw new Error(`Invalid or empty JSON structure returned by ${modelToAttempt}`);
+      }
+
       return parsed;
     } catch (err: any) {
       const elapsed = ((Date.now() - attemptStartTime) / 1000).toFixed(1);
@@ -477,10 +496,20 @@ Respond strictly in valid JSON matching this schema:
   }
 
   // 3. Fallback: Heuristic Engine
-  console.log('[Scanner] 🟡 Running Heuristic Engine for all industry tracks.');
+  const hasKey = !!(
+    settings?.openrouterApiKey ||
+    settings?.geminiApiKey ||
+    process.env.OPENROUTER_API_KEY ||
+    process.env.GEMINI_API_KEY
+  );
+  const engineLabel = hasKey
+    ? 'Heuristic Fallback Engine (Upstream LLMs Overloaded)'
+    : 'Heuristic Engine (Zero-Config / No Key)';
+
+  console.log(`[Scanner] 🟡 Running ${engineLabel} for all industry tracks.`);
   const industryDigests = feedWithArticles.map(({ feed, articles }) => {
     const ind = extractIndustryIntelligenceHeuristic(feed.industryKey, feed.name, articles, dateStr);
-    ind.engineUsed = 'Heuristic Engine (Offline / No Key)';
+    ind.engineUsed = engineLabel;
     return ind;
   });
 
@@ -493,7 +522,7 @@ Respond strictly in valid JSON matching this schema:
     keyTakeaways,
     industries: industryDigests,
     totalArticlesScanned: totalArticles,
-    engineUsed: 'Heuristic Engine (Offline / No Key)',
+    engineUsed: engineLabel,
   };
 }
 
@@ -631,9 +660,19 @@ export async function analyzeIndustryArticles(
   }
 
   // 3. High-Fidelity Domain-Aware Heuristic & NLP Extractor
-  console.log(`[Scanner] 🟡 ${industryName}: Analyzed using Zero-Config Heuristic Engine (no API key configured)`);
+  const hasKey = !!(
+    settings?.openrouterApiKey ||
+    settings?.geminiApiKey ||
+    process.env.OPENROUTER_API_KEY ||
+    process.env.GEMINI_API_KEY
+  );
+  const engineLabel = hasKey
+    ? 'Heuristic Fallback Engine (Upstream LLMs Overloaded)'
+    : 'Heuristic Engine (Zero-Config / No Key)';
+
+  console.log(`[Scanner] 🟡 ${industryName}: Analyzed using ${engineLabel}`);
   const result = extractIndustryIntelligenceHeuristic(industryKey, industryName, effectiveArticles, dateStr);
-  result.engineUsed = 'Heuristic Engine (Offline / No Key)';
+  result.engineUsed = engineLabel;
   return result;
 }
 

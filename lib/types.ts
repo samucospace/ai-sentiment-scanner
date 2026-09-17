@@ -12,6 +12,20 @@ export type IndustryKey =
 
 export type LLMProvider = 'openrouter' | 'gemini';
 
+export type ActiveDashboardView = 'matrix' | 'usecases' | 'trends';
+
+export interface SentimentTrendPoint {
+  date: string;
+  createdAt: string;
+  workerScore: number;
+  customerScore: number;
+  workerLabel: string;
+  customerLabel: string;
+  rationale?: string;
+  topProfessions?: string[];
+  digestId: string;
+}
+
 export interface FeedTrack {
   id: string;
   name: string;

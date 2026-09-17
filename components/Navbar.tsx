@@ -10,7 +10,9 @@ import {
   Calendar,
   Layers,
   Lightbulb,
+  TrendingUp,
 } from 'lucide-react';
+import { ActiveDashboardView } from '@/lib/types';
 
 interface NavbarProps {
   currentDate: string;
@@ -18,8 +20,8 @@ interface NavbarProps {
   onTriggerScan: () => void;
   onOpenFeedManager: () => void;
   onOpenSettings: () => void;
-  activeView: 'matrix' | 'usecases';
-  onChangeView: (view: 'matrix' | 'usecases') => void;
+  activeView: ActiveDashboardView;
+  onChangeView: (view: ActiveDashboardView) => void;
   hasApiKey?: boolean;
 }
 
@@ -80,6 +82,17 @@ export function Navbar({
             <Lightbulb className="w-3.5 h-3.5" />
             <span>Use Cases Radar</span>
           </button>
+          <button
+            onClick={() => onChangeView('trends')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+              activeView === 'trends'
+                ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm font-semibold'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5" />
+            <span>Sentiment Trends</span>
+          </button>
         </div>
 
         {/* Action Controls */}
@@ -117,6 +130,43 @@ export function Navbar({
             />
           </button>
         </div>
+      </div>
+
+      {/* Mobile View Switcher Tabs */}
+      <div className="flex md:hidden items-center justify-around border-t border-slate-200/80 dark:border-slate-800/80 px-2 py-1.5 bg-slate-50/50 dark:bg-slate-900/50 text-xs">
+        <button
+          onClick={() => onChangeView('matrix')}
+          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all ${
+            activeView === 'matrix'
+              ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 font-semibold shadow-sm'
+              : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <Layers className="w-3.5 h-3.5" />
+          <span>Matrix</span>
+        </button>
+        <button
+          onClick={() => onChangeView('usecases')}
+          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all ${
+            activeView === 'usecases'
+              ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 font-semibold shadow-sm'
+              : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <Lightbulb className="w-3.5 h-3.5" />
+          <span>Use Cases</span>
+        </button>
+        <button
+          onClick={() => onChangeView('trends')}
+          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all ${
+            activeView === 'trends'
+              ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 font-semibold shadow-sm'
+              : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <TrendingUp className="w-3.5 h-3.5" />
+          <span>Trends</span>
+        </button>
       </div>
     </header>
   );

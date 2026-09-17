@@ -1,22 +1,25 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { DailyDigest, FeedTrack, RawArticle } from '@/lib/types';
+import { DailyDigest, FeedTrack, RawArticle, ActiveDashboardView } from '@/lib/types';
 import { Navbar } from '@/components/Navbar';
 import { ExecutiveBriefing } from '@/components/ExecutiveBriefing';
 import { SentimentMatrix } from '@/components/SentimentMatrix';
 import { UseCasesRadar } from '@/components/UseCasesRadar';
+import { SentimentTrends } from '@/components/SentimentTrends';
 import { FeedManagerModal } from '@/components/FeedManagerModal';
 import { SettingsModal } from '@/components/SettingsModal';
 import { ArticleDetailModal } from '@/components/ArticleDetailModal';
-import { RefreshCw, Sparkles, AlertCircle, Radar } from 'lucide-react';
+import { RefreshCw, Sparkles, AlertCircle, Radar, History, ArrowLeft } from 'lucide-react';
 
 export default function DashboardPage() {
   const [digest, setDigest] = useState<DailyDigest | null>(null);
+  const [allDigests, setAllDigests] = useState<DailyDigest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeView, setActiveView] = useState<'matrix' | 'usecases'>('matrix');
+  const [activeView, setActiveView] = useState<ActiveDashboardView>('matrix');
+  const [isViewingHistorical, setIsViewingHistorical] = useState(false);
 
   // Modal states
   const [isFeedManagerOpen, setIsFeedManagerOpen] = useState(false);
@@ -49,7 +52,9 @@ export default function DashboardPage() {
       const data = await res.json();
 
       if (data.digests && data.digests.length > 0) {
+        setAllDigests(data.digests);
         setDigest(data.digests[0]);
+        setIsViewingHistorical(false);
       } else {
         // Automatically trigger first scan
         await handleScan(false);
@@ -84,6 +89,13 @@ export default function DashboardPage() {
       const data = await res.json();
       if (data.digest) {
         setDigest(data.digest);
+        setAllDigests((prev) => {
+          const filtered = prev.filter((d) => d.date !== data.digest.date);
+          return [data.digest, ...filtered].sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+          );
+        });
+        setIsViewingHistorical(false);
       } else if (data.error) {
         setError(data.error);
       }
@@ -93,6 +105,19 @@ export default function DashboardPage() {
     } finally {
       setIsScanning(false);
       setIsLoading(false);
+    }
+  };
+
+  const handleSelectHistoricalDigest = (historicalDigest: DailyDigest) => {
+    setDigest(historicalDigest);
+    const isLatest = allDigests.length > 0 && allDigests[0].id === historicalDigest.id;
+    setIsViewingHistorical(!isLatest);
+  };
+
+  const handleReturnToLatest = () => {
+    if (allDigests.length > 0) {
+      setDigest(allDigests[0]);
+      setIsViewingHistorical(false);
     }
   };
 
@@ -133,6 +158,25 @@ export default function DashboardPage() {
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {/* Historical Digest Notification Banner */}
+        {isViewingHistorical && digest && (
+          <div className="p-3.5 rounded-xl bg-indigo-950/70 border border-indigo-700/80 text-indigo-200 text-xs flex items-center justify-between gap-3 shadow-md">
+            <div className="flex items-center gap-2">
+              <History className="w-4 h-4 text-indigo-400 shrink-0" />
+              <span>
+                Viewing Historical Scan from <strong className="text-white">{digest.date}</strong> (loaded from local store).
+              </span>
+            </div>
+            <button
+              onClick={handleReturnToLatest}
+              className="flex items-center gap-1.5 px-3 py-1 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white font-semibold transition-all shadow-sm active:scale-95"
+            >
+              <ArrowLeft className="w-3 h-3" />
+              <span>Return to Latest Scan</span>
+            </button>
+          </div>
+        )}
+
         {/* Error Alert */}
         {error && (
           <div className="p-4 rounded-xl bg-rose-950/60 border border-rose-800 text-rose-300 text-sm flex items-center justify-between gap-3">
@@ -164,19 +208,30 @@ export default function DashboardPage() {
           </div>
         ) : digest ? (
           <>
-            {/* Executive Briefing Section */}
-            <ExecutiveBriefing digest={digest} />
-
-            {/* Main Tabs/View Section */}
-            {activeView === 'matrix' ? (
-              <SentimentMatrix
-                industries={digest.industries}
-                onSelectArticles={(industryName, articles) =>
-                  setSelectedArticles({ industryName, articles })
-                }
+            {activeView === 'trends' ? (
+              <SentimentTrends
+                digests={allDigests}
+                currentDigestId={digest.id}
+                onSelectDigest={handleSelectHistoricalDigest}
+                onNavigateToMatrix={() => setActiveView('matrix')}
               />
             ) : (
-              <UseCasesRadar useCases={allUseCases} />
+              <>
+                {/* Executive Briefing Section */}
+                <ExecutiveBriefing digest={digest} />
+
+                {/* Matrix or Use Cases Radar */}
+                {activeView === 'matrix' ? (
+                  <SentimentMatrix
+                    industries={digest.industries}
+                    onSelectArticles={(industryName, articles) =>
+                      setSelectedArticles({ industryName, articles })
+                    }
+                  />
+                ) : (
+                  <UseCasesRadar useCases={allUseCases} />
+                )}
+              </>
             )}
           </>
         ) : null}

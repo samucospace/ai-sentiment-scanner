@@ -11,11 +11,11 @@ interface SettingsModalProps {
 }
 
 const OPENROUTER_PRESETS = [
-  { id: 'nvidia/nemotron-3-super-120b-a12b:free', label: 'Nvidia Nemotron Super 120B (Free & Fast)', tag: 'FREE' },
-  { id: 'openrouter/free', label: 'Auto Free Router', tag: 'FREE' },
+  { id: 'openrouter/free', label: 'Auto Free Router (Recommended)', tag: 'FREE' },
+  { id: 'nvidia/nemotron-3.5-lightning:free', label: 'Nvidia Nemotron 3.5 Lightning (Free & Fast)', tag: 'FREE' },
+  { id: 'nvidia/nemotron-3-super-120b-a12b:free', label: 'Nvidia Nemotron Super 120B (Free)', tag: 'FREE' },
   { id: 'deepseek/deepseek-chat', label: 'DeepSeek V3 / Chat ($0.14/1M)', tag: 'CHEAP' },
   { id: 'openai/gpt-4o-mini', label: 'OpenAI GPT-4o Mini', tag: 'CHEAP' },
-  { id: 'nvidia/nemotron-3.5-lightning:free', label: 'Nvidia Nemotron 3.5 Lightning (Free)', tag: 'FREE' },
 ];
 
 export function SettingsModal({ isOpen, onClose, onSettingsSaved }: SettingsModalProps) {
@@ -32,6 +32,8 @@ export function SettingsModal({ isOpen, onClose, onSettingsSaved }: SettingsModa
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isTestingKey, setIsTestingKey] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -93,6 +95,33 @@ export function SettingsModal({ isOpen, onClose, onSettingsSaved }: SettingsModa
       console.error('Failed to save settings', err);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleTestKey = async () => {
+    setIsTestingKey(true);
+    setTestResult(null);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          testOnly: true,
+          provider,
+          openrouterApiKey: openRouterKey.trim() || undefined,
+          geminiApiKey: geminiKey.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTestResult({ success: true, message: data.message || 'Key is valid and working!' });
+      } else {
+        setTestResult({ success: false, message: data.error || 'Validation failed' });
+      }
+    } catch (err: any) {
+      setTestResult({ success: false, message: err.message || 'Connection error' });
+    } finally {
+      setIsTestingKey(false);
     }
   };
 
@@ -184,9 +213,43 @@ export function SettingsModal({ isOpen, onClose, onSettingsSaved }: SettingsModa
                       : 'sk-or-v1-...'
                   }
                   value={openRouterKey}
-                  onChange={(e) => setOpenRouterKey(e.target.value)}
+                  onChange={(e) => {
+                    setOpenRouterKey(e.target.value);
+                    setTestResult(null);
+                  }}
                   className="w-full text-xs px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 />
+                <div className="flex items-center justify-between mt-2">
+                  <button
+                    type="button"
+                    onClick={handleTestKey}
+                    disabled={isTestingKey || (!openRouterKey.trim() && !hasOpenRouterKey)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900 border border-indigo-200 dark:border-indigo-800 text-[11px] font-semibold transition-all disabled:opacity-50"
+                  >
+                    <Zap className={`w-3 h-3 ${isTestingKey ? 'animate-spin' : ''}`} />
+                    <span>{isTestingKey ? 'Testing Connection...' : 'Test API Key Connection'}</span>
+                  </button>
+                  {hasOpenRouterKey && !openRouterKey.trim() && (
+                    <span className="text-[10px] text-emerald-500 font-medium">● Key active in store</span>
+                  )}
+                </div>
+
+                {testResult && (
+                  <div
+                    className={`mt-2.5 p-2.5 rounded-xl text-xs flex items-center gap-2 border ${
+                      testResult.success
+                        ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
+                        : 'bg-rose-50 dark:bg-rose-950/60 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300'
+                    }`}
+                  >
+                    {testResult.success ? (
+                      <Check className="w-4 h-4 shrink-0 text-emerald-500" />
+                    ) : (
+                      <X className="w-4 h-4 shrink-0 text-rose-500" />
+                    )}
+                    <span className="leading-snug">{testResult.message}</span>
+                  </div>
+                )}
               </div>
 
               {/* Model Preset Selection */}
@@ -258,9 +321,43 @@ export function SettingsModal({ isOpen, onClose, onSettingsSaved }: SettingsModa
                       : 'AIzaSy...'
                   }
                   value={geminiKey}
-                  onChange={(e) => setGeminiKey(e.target.value)}
+                  onChange={(e) => {
+                    setGeminiKey(e.target.value);
+                    setTestResult(null);
+                  }}
                   className="w-full text-xs px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 />
+                <div className="flex items-center justify-between mt-2">
+                  <button
+                    type="button"
+                    onClick={handleTestKey}
+                    disabled={isTestingKey || (!geminiKey.trim() && !hasGeminiKey)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900 border border-emerald-200 dark:border-emerald-800 text-[11px] font-semibold transition-all disabled:opacity-50"
+                  >
+                    <Zap className={`w-3 h-3 ${isTestingKey ? 'animate-spin' : ''}`} />
+                    <span>{isTestingKey ? 'Testing Connection...' : 'Test API Key Connection'}</span>
+                  </button>
+                  {hasGeminiKey && !geminiKey.trim() && (
+                    <span className="text-[10px] text-emerald-500 font-medium">● Key active in store</span>
+                  )}
+                </div>
+
+                {testResult && (
+                  <div
+                    className={`mt-2.5 p-2.5 rounded-xl text-xs flex items-center gap-2 border ${
+                      testResult.success
+                        ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
+                        : 'bg-rose-50 dark:bg-rose-950/60 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300'
+                    }`}
+                  >
+                    {testResult.success ? (
+                      <Check className="w-4 h-4 shrink-0 text-emerald-500" />
+                    ) : (
+                      <X className="w-4 h-4 shrink-0 text-rose-500" />
+                    )}
+                    <span className="leading-snug">{testResult.message}</span>
+                  </div>
+                )}
               </div>
             </div>
           )}

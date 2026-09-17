@@ -48,6 +48,7 @@ ai-sentiment-scanner/
 │   ├── Navbar.tsx               # Header, live scan trigger, view switcher
 │   ├── SentimentGauge.tsx       # Visual gauge (-1.0 to +1.0) with color grading
 │   ├── SentimentMatrix.tsx      # Dual sentiment radar cards by industry
+│   ├── SentimentTrends.tsx      # Time-series sentiment tracking & database history visualization
 │   ├── SettingsModal.tsx        # Gemini API Key configuration
 │   └── UseCasesRadar.tsx        # Filterable problem-solution use case cards
 ├── lib/
