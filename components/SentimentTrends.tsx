@@ -30,6 +30,7 @@ interface SentimentTrendsProps {
 
 interface DataPoint {
   date: string;
+  timestamp: number;
   displayDate: string;
   workerScore: number;
   customerScore: number;
@@ -76,6 +77,7 @@ export function SentimentTrends({
   const timeSeriesData: DataPoint[] = useMemo(() => {
     return sortedChronologicalDigests.map((d) => {
       const dateObj = new Date(d.date + 'T00:00:00');
+      const timestamp = dateObj.getTime();
       const displayDate = dateObj.toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
@@ -93,6 +95,7 @@ export function SentimentTrends({
 
         return {
           date: d.date,
+          timestamp,
           displayDate,
           workerScore: parseFloat(avgWorker.toFixed(2)),
           customerScore: parseFloat(avgCustomer.toFixed(2)),
@@ -121,6 +124,7 @@ export function SentimentTrends({
 
         return {
           date: d.date,
+          timestamp,
           displayDate,
           workerScore: parseFloat(workerScore.toFixed(2)),
           customerScore: parseFloat(customerScore.toFixed(2)),
@@ -143,7 +147,7 @@ export function SentimentTrends({
       ? timeSeriesData[hoveredPointIndex]
       : timeSeriesData[timeSeriesData.length - 1];
 
-  // Calculate macro shifts (latest vs earliest)
+  // Calculate macro shifts (latest vs earliest) and true calendar span
   const stats = useMemo(() => {
     if (timeSeriesData.length === 0) return null;
     const first = timeSeriesData[0];
@@ -152,10 +156,12 @@ export function SentimentTrends({
     const workerDelta = latest.workerScore - first.workerScore;
     const customerDelta = latest.customerScore - first.customerScore;
     const divergenceGap = Math.abs(latest.workerScore - latest.customerScore);
+    const daySpan = Math.max(1, Math.round((latest.timestamp - first.timestamp) / (24 * 60 * 60 * 1000)));
 
     return {
       firstDate: first.date,
       latestDate: latest.date,
+      daySpan,
       totalScans: timeSeriesData.length,
       currentWorkerScore: latest.workerScore,
       currentCustomerScore: latest.customerScore,
@@ -165,45 +171,144 @@ export function SentimentTrends({
     };
   }, [timeSeriesData]);
 
+  // Accurate linear time domain calculation
+  const { minTime, maxTime, totalDuration } = useMemo(() => {
+    if (timeSeriesData.length === 0) {
+      return { minTime: 0, maxTime: 0, totalDuration: 0 };
+    }
+    const min = timeSeriesData[0].timestamp;
+    const max = timeSeriesData[timeSeriesData.length - 1].timestamp;
+    return {
+      minTime: min,
+      maxTime: max,
+      totalDuration: Math.max(0, max - min),
+    };
+  }, [timeSeriesData]);
+
   // SVG Chart Dimensions & Coordinate Mapping
   const chartWidth = 760;
   const chartHeight = 280;
-  const padding = { top: 30, right: 30, bottom: 40, left: 55 };
+  const padding = { top: 30, right: 35, bottom: 44, left: 55 };
   const innerWidth = chartWidth - padding.left - padding.right;
   const innerHeight = chartHeight - padding.top - padding.bottom;
 
   // Sentiment scale: -1.0 (bottom) to +1.0 (top)
   const getY = (val: number) => {
-    // val ranges from -1.0 to +1.0
-    // normalized: -1.0 -> 0, 0.0 -> 0.5, 1.0 -> 1.0
     const normalized = (val + 1) / 2;
     return padding.top + innerHeight * (1 - normalized);
   };
 
-  const getX = (index: number) => {
-    if (timeSeriesData.length <= 1) {
+  // Linear mathematical mapping: timestamp -> proportional SVG X coordinate
+  const getX = (timestamp: number) => {
+    if (totalDuration === 0) {
       return padding.left + innerWidth / 2;
     }
-    return padding.left + (index / (timeSeriesData.length - 1)) * innerWidth;
+    return padding.left + ((timestamp - minTime) / totalDuration) * innerWidth;
   };
 
-  // Build SVG Path strings
-  const workerPoints = timeSeriesData.map((d, i) => `${getX(i)},${getY(d.workerScore)}`);
-  const customerPoints = timeSeriesData.map((d, i) => `${getX(i)},${getY(d.customerScore)}`);
+  // Uniform calendar grid ticks based on true elapsed days
+  const axisTicks = useMemo(() => {
+    if (timeSeriesData.length === 0) return [];
+    if (totalDuration === 0) {
+      return [
+        {
+          timestamp: timeSeriesData[0].timestamp,
+          label: timeSeriesData[0].displayDate,
+          x: padding.left + innerWidth / 2,
+        },
+      ];
+    }
+
+    const dayMs = 24 * 60 * 60 * 1000;
+    const totalDays = Math.max(1, Math.round(totalDuration / dayMs));
+
+    // Choose friendly step size in days (e.g. 1, 2, 3, 5, 7, 14, 30)
+    let stepDays = 1;
+    if (totalDays > 90) stepDays = 14;
+    else if (totalDays > 45) stepDays = 7;
+    else if (totalDays > 25) stepDays = 5;
+    else if (totalDays > 14) stepDays = 3;
+    else if (totalDays > 7) stepDays = 2;
+    else stepDays = 1;
+
+    const ticks: { timestamp: number; label: string; x: number }[] = [];
+    let t = minTime;
+    while (t <= maxTime) {
+      const dObj = new Date(t);
+      ticks.push({
+        timestamp: t,
+        label: dObj.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+        }),
+        x: getX(t),
+      });
+      t += stepDays * dayMs;
+    }
+
+    // Ensure the latest date is labeled if not too close to the last tick
+    const lastTick = ticks[ticks.length - 1];
+    const maxX = getX(maxTime);
+    if (!lastTick || Math.abs(maxX - lastTick.x) > 36) {
+      const maxObj = new Date(maxTime);
+      ticks.push({
+        timestamp: maxTime,
+        label: maxObj.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+        }),
+        x: maxX,
+      });
+    }
+
+    return ticks;
+  }, [minTime, maxTime, totalDuration, innerWidth, padding.left, timeSeriesData]);
+
+  // Build SVG Path strings using exact proportional timestamps
+  const workerPoints = timeSeriesData.map((d) => `${getX(d.timestamp).toFixed(1)},${getY(d.workerScore).toFixed(1)}`);
+  const customerPoints = timeSeriesData.map((d) => `${getX(d.timestamp).toFixed(1)},${getY(d.customerScore).toFixed(1)}`);
 
   const workerPath = workerPoints.length > 1 ? `M ${workerPoints.join(' L ')}` : '';
   const customerPath = customerPoints.length > 1 ? `M ${customerPoints.join(' L ')}` : '';
 
   // Area under curves
   const zeroY = getY(0);
+  const firstX = timeSeriesData.length > 0 ? getX(timeSeriesData[0].timestamp) : padding.left;
+  const lastX = timeSeriesData.length > 0 ? getX(timeSeriesData[timeSeriesData.length - 1].timestamp) : padding.left;
+
   const workerArea =
     workerPoints.length > 1
-      ? `${workerPath} L ${getX(timeSeriesData.length - 1)},${zeroY} L ${getX(0)},${zeroY} Z`
+      ? `${workerPath} L ${lastX.toFixed(1)},${zeroY.toFixed(1)} L ${firstX.toFixed(1)},${zeroY.toFixed(1)} Z`
       : '';
   const customerArea =
     customerPoints.length > 1
-      ? `${customerPath} L ${getX(timeSeriesData.length - 1)},${zeroY} L ${getX(0)},${zeroY} Z`
+      ? `${customerPath} L ${lastX.toFixed(1)},${zeroY.toFixed(1)} L ${firstX.toFixed(1)},${zeroY.toFixed(1)} Z`
       : '';
+
+  // Mouse hover proximity detection
+  const handleSvgMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (timeSeriesData.length === 0) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (!rect.width) return;
+    const svgX = ((e.clientX - rect.left) / rect.width) * chartWidth;
+
+    let closestIdx = 0;
+    let minDiff = Infinity;
+    timeSeriesData.forEach((d, idx) => {
+      const px = getX(d.timestamp);
+      const diff = Math.abs(px - svgX);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestIdx = idx;
+      }
+    });
+
+    setHoveredPointIndex(closestIdx);
+  };
+
+  const handleSvgMouseLeave = () => {
+    setHoveredPointIndex(null);
+  };
 
   // Export local time-series data as JSON
   const handleExportJSON = () => {
@@ -515,7 +620,14 @@ export function SentimentTrends({
           <div className="min-w-[640px]">
             <svg
               viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-              className="w-full h-auto overflow-visible select-none"
+              className="w-full h-auto overflow-visible select-none cursor-crosshair"
+              onMouseMove={handleSvgMouseMove}
+              onMouseLeave={handleSvgMouseLeave}
+              onClick={() => {
+                if (hoveredPointIndex !== null && timeSeriesData[hoveredPointIndex]) {
+                  onSelectDigest(timeSeriesData[hoveredPointIndex].digest);
+                }
+              }}
             >
               <defs>
                 {/* Indigo Worker Gradient */}
@@ -570,6 +682,49 @@ export function SentimentTrends({
                 Neutral
               </text>
 
+              {/* Calendar Date Grid Ticks & Vertical Lines */}
+              {axisTicks.map((tick, idx) => (
+                <g key={`tick-${idx}`}>
+                  <line
+                    x1={tick.x}
+                    y1={padding.top}
+                    x2={tick.x}
+                    y2={chartHeight - padding.bottom}
+                    stroke="#1e293b"
+                    strokeWidth="1"
+                    strokeDasharray="2,4"
+                  />
+                  <line
+                    x1={tick.x}
+                    y1={chartHeight - padding.bottom}
+                    x2={tick.x}
+                    y2={chartHeight - padding.bottom + 4}
+                    stroke="#475569"
+                    strokeWidth="1"
+                  />
+                  <text
+                    x={tick.x}
+                    y={chartHeight - padding.bottom + 16}
+                    fill="#64748b"
+                    fontSize="9"
+                    fontFamily="monospace"
+                    textAnchor="middle"
+                  >
+                    {tick.label}
+                  </text>
+                </g>
+              ))}
+
+              {/* X-Axis Baseline */}
+              <line
+                x1={padding.left}
+                y1={chartHeight - padding.bottom}
+                x2={chartWidth - padding.right}
+                y2={chartHeight - padding.bottom}
+                stroke="#334155"
+                strokeWidth="1"
+              />
+
               {/* Shaded Areas */}
               {workerArea && <path d={workerArea} fill="url(#workerGrad)" />}
               {customerArea && <path d={customerArea} fill="url(#customerGrad)" />}
@@ -596,75 +751,123 @@ export function SentimentTrends({
                 />
               )}
 
-              {/* Data Points & Interactive Columns */}
+              {/* Timeline Scan Dots on Baseline */}
               {timeSeriesData.map((d, i) => {
-                const x = getX(i);
+                const x = getX(d.timestamp);
+                const isHovered = hoveredPointIndex === i;
+                const isCurrent = d.digest.id === currentDigestId;
+                return (
+                  <circle
+                    key={`baseline-dot-${d.date}`}
+                    cx={x}
+                    cy={chartHeight - padding.bottom}
+                    r={isHovered || isCurrent ? 3.5 : 2}
+                    fill={isHovered ? '#818cf8' : isCurrent ? '#a5b4fc' : '#475569'}
+                  />
+                );
+              })}
+
+              {/* Active Hover Guide & Date Pill */}
+              {hoveredPointIndex !== null && timeSeriesData[hoveredPointIndex] && (() => {
+                const active = timeSeriesData[hoveredPointIndex];
+                const activeX = getX(active.timestamp);
+                return (
+                  <g className="pointer-events-none">
+                    <line
+                      x1={activeX}
+                      y1={padding.top}
+                      x2={activeX}
+                      y2={chartHeight - padding.bottom}
+                      stroke="#818cf8"
+                      strokeWidth="1.5"
+                      strokeDasharray="3,3"
+                      opacity="0.8"
+                    />
+                    <rect
+                      x={activeX - 26}
+                      y={chartHeight - padding.bottom + 4}
+                      width={52}
+                      height={18}
+                      rx={4}
+                      fill="#1e1b4b"
+                      stroke="#6366f1"
+                      strokeWidth="1"
+                    />
+                    <text
+                      x={activeX}
+                      y={chartHeight - padding.bottom + 16}
+                      fill="#e0e7ff"
+                      fontWeight="bold"
+                      fontSize="10"
+                      fontFamily="monospace"
+                      textAnchor="middle"
+                    >
+                      {active.displayDate}
+                    </text>
+                  </g>
+                );
+              })()}
+
+              {/* Data Points on Curves */}
+              {timeSeriesData.map((d, i) => {
+                const x = getX(d.timestamp);
                 const workerY = getY(d.workerScore);
                 const customerY = getY(d.customerScore);
                 const isHovered = hoveredPointIndex === i;
                 const isCurrent = d.digest.id === currentDigestId;
 
                 return (
-                  <g key={d.date} className="cursor-pointer">
-                    {/* Vertical guide indicator on hover */}
-                    {isHovered && (
-                      <line
-                        x1={x}
-                        y1={padding.top}
-                        x2={x}
-                        y2={chartHeight - padding.bottom}
-                        stroke="#6366f1"
-                        strokeWidth="1"
-                        strokeDasharray="2,2"
-                        opacity="0.8"
-                      />
-                    )}
-
-                    {/* Date label on X-axis */}
-                    <text
-                      x={x}
-                      y={chartHeight - padding.bottom + 18}
-                      fill={isHovered || isCurrent ? '#f8fafc' : '#94a3b8'}
-                      fontWeight={isHovered || isCurrent ? 'bold' : 'normal'}
-                      fontSize="10"
-                      fontFamily="monospace"
-                      textAnchor="middle"
-                    >
-                      {d.displayDate}
-                    </text>
-
+                  <g
+                    key={d.date}
+                    className="cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectDigest(d.digest);
+                    }}
+                  >
                     {/* Worker Dot */}
                     <circle
                       cx={x}
                       cy={workerY}
-                      r={isHovered ? 6 : 4}
+                      r={isHovered ? 6 : isCurrent ? 5 : 4}
                       fill="#818cf8"
                       stroke="#0f172a"
                       strokeWidth="2"
                       className="transition-all duration-150"
                     />
+                    {isHovered && (
+                      <circle
+                        cx={x}
+                        cy={workerY}
+                        r={9}
+                        fill="none"
+                        stroke="#818cf8"
+                        strokeWidth="1.5"
+                        strokeOpacity="0.4"
+                      />
+                    )}
 
                     {/* Customer Dot */}
                     <circle
                       cx={x}
                       cy={customerY}
-                      r={isHovered ? 6 : 4}
+                      r={isHovered ? 6 : isCurrent ? 5 : 4}
                       fill="#10b981"
                       stroke="#0f172a"
                       strokeWidth="2"
                       className="transition-all duration-150"
                     />
-
-                    {/* Invisible full-height hit area for mouse interactions */}
-                    <rect
-                      x={x - (innerWidth / Math.max(1, timeSeriesData.length)) / 2}
-                      y={padding.top}
-                      width={innerWidth / Math.max(1, timeSeriesData.length)}
-                      height={innerHeight}
-                      fill="transparent"
-                      onMouseEnter={() => setHoveredPointIndex(i)}
-                      onClick={() => onSelectDigest(d.digest)}
-                    />
+                    {isHovered && (
+                      <circle
+                        cx={x}
+                        cy={customerY}
+                        r={9}
+                        fill="none"
+                        stroke="#10b981"
+                        strokeWidth="1.5"
+                        strokeOpacity="0.4"
+                      />
+                    )}
                   </g>
                 );
               })}
