@@ -6,7 +6,7 @@ An autonomous intelligence dashboard that monitors daily Google Alert and Google
 
 ## 🌟 Key Features
 
-- **9 Preset Industry Tracks**:
+- **10 Preset Industry Tracks**:
   - 🏥 **Healthcare & Medicine**: Ambient clinical scribing, radiology vision models, and patient triage bots.
   - ⚖️ **Legal & Judiciary**: Contract redlining, billable hours impact, and litigation research LLMs.
   - 🎓 **Education & Academics**: K-12 AI restriction policies, adaptive curricula, and Socratic homework coaches.
@@ -16,6 +16,7 @@ An autonomous intelligence dashboard that monitors daily Google Alert and Google
   - 🛍️ **Retail & Customer Support**: Autonomous customer resolution bots, dynamic pricing, and inventory forecasting.
   - 🤖 **Manufacturing & Robotics**: Predictive machinery maintenance and autonomous bin-picking robotics.
   - 💳 **Payments & Agentic Commerce**: Autonomous purchasing agents, machine-to-machine checkout rails, programmable spending guardrails, and transaction fraud defense.
+  - 📣 **Marketing & Customer Engagement**: Generative copywriting, hyper-personalized campaigns, predictive churn mitigation, and conversational lifecycle journeys.
 
 - **Dual-Perspective Sentiment Analysis**:
   - 👷 **Workforce / Practitioner Sentiment**: Measures anxiety over liability, burnout, cognitive offloading, job displacement, and adoption (`-1.0` to `+1.0` scale).

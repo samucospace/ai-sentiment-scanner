@@ -7,6 +7,7 @@ import {
   synthesizeDailyDigest,
 } from '@/lib/analyzer';
 import { DailyDigest, IndustryDigest } from '@/lib/types';
+import { generateLinkedInTopics } from '@/lib/linkedin';
 
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
@@ -95,6 +96,7 @@ export async function POST(req: NextRequest) {
         totalArticlesScanned: target.articles.length,
         engineUsed: dominantEngine,
       };
+      newDigest.linkedInTopics = generateLinkedInTopics(newDigest);
     }
 
     saveDailyDigest(newDigest);

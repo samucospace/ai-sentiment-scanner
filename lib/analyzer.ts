@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { RawArticle, IndustryDigest, ExtractedUseCase, IndustryKey, AppSettings, DailyDigest } from './types';
+import { generateLinkedInTopics } from './linkedin';
 
 interface LLMAnalysisResult {
   workerSentiment: {
@@ -311,7 +312,7 @@ Respond strictly in valid JSON matching this schema:
       "useCases": [{ "title": string, "problemSolved": string, "howItWorks": string, "targetUsers": string, "keyBenefit": string, "maturityStage": "Production"|"Pilot"|"Research"|"Policy/Banned", "sourceTitle": string, "sourceUrl": string }],
       "summary": string
     }
-    // ... repeat for legal, education, finance, software, creative, retail, manufacturing, payments
+    // ... repeat for legal, education, finance, software, creative, retail, manufacturing, payments, marketing
   }
 }`;
 
@@ -377,9 +378,7 @@ Respond strictly in valid JSON matching this schema:
             return extractIndustryIntelligenceHeuristic(feed.industryKey, feed.name, articles, dateStr);
           });
 
-          console.log(`[Scanner] 🟢 Unified multi-industry analysis completed successfully for all ${industryDigests.length} tracks!`);
-
-          return {
+          const finalDigest: DailyDigest = {
             id: `digest-${dateStr}`,
             date: dateStr,
             createdAt: new Date().toISOString(),
@@ -395,6 +394,8 @@ Respond strictly in valid JSON matching this schema:
             totalArticlesScanned: totalArticles,
             engineUsed: `OpenRouter (${modelName})`,
           };
+          finalDigest.linkedInTopics = generateLinkedInTopics(finalDigest);
+          return finalDigest;
         }
       } catch (err: any) {
         console.warn(`[Scanner] ⚠️ Unified OpenRouter call failed: ${err.message}. Running fallback engine...`);
@@ -473,7 +474,7 @@ Respond strictly in valid JSON matching this schema:
 
         console.log(`[Scanner] 🟢 Unified Gemini analysis completed successfully for all ${industryDigests.length} tracks!`);
 
-        return {
+        const finalGeminiDigest: DailyDigest = {
           id: `digest-${dateStr}`,
           date: dateStr,
           createdAt: new Date().toISOString(),
@@ -489,6 +490,8 @@ Respond strictly in valid JSON matching this schema:
           totalArticlesScanned: totalArticles,
           engineUsed: `Google Gemini (${modelName})`,
         };
+        finalGeminiDigest.linkedInTopics = generateLinkedInTopics(finalGeminiDigest);
+        return finalGeminiDigest;
       }
     } catch (err: any) {
       console.warn(`[Scanner] ⚠️ Unified Gemini call failed: ${err.message}. Running fallback engine...`);
@@ -514,7 +517,7 @@ Respond strictly in valid JSON matching this schema:
   });
 
   const { executiveSummary, keyTakeaways } = synthesizeDailyDigest(industryDigests);
-  return {
+  const fallbackDigest: DailyDigest = {
     id: `digest-${dateStr}`,
     date: dateStr,
     createdAt: new Date().toISOString(),
@@ -524,6 +527,8 @@ Respond strictly in valid JSON matching this schema:
     totalArticlesScanned: totalArticles,
     engineUsed: engineLabel,
   };
+  fallbackDigest.linkedInTopics = generateLinkedInTopics(fallbackDigest);
+  return fallbackDigest;
 }
 
 export async function analyzeIndustryArticles(
@@ -972,6 +977,41 @@ const INDUSTRY_USECASE_PATTERNS: Record<IndustryKey, UseCaseTemplate[]> = {
       defaultStage: 'Pilot',
     },
   ],
+  marketing: [
+    {
+      keywords: ['churn', 'retention', 'predictive', 'behavioral', 'segment', 'lifecycle', 'loyalty', 'drop-off'],
+      title: 'Hyper-Personalized Retention Engine & Predictive Churn Mitigation',
+      problemSolved:
+        'Marketing teams struggle to anticipate customer churn early and cannot manually craft individualized retention incentives for thousands of distinct customer segments.',
+      howItWorks:
+        'Real-time behavioral ML analyzes customer telemetry and engagement drop-offs, autonomously dispatching personalized dynamic incentives and tailored lifecycle offers.',
+      targetUsers: 'Growth Marketers, CRM Managers, Retention Specialists, Customer Success Leads',
+      keyBenefit: 'Reduces monthly customer churn by up to 24% while increasing retention offer conversion by 35%.',
+      defaultStage: 'Production',
+    },
+    {
+      keywords: ['copy', 'ad', 'creative', 'generative', 'campaign', 'variant', 'multivariate', 'ctr', 'advertising'],
+      title: 'Generative Multi-Channel Ad Creative & Dynamic Copy Optimization',
+      problemSolved:
+        'High creative fatigue across paid channels forces marketing teams into slow, expensive design and copywriting cycles that delay campaign scaling.',
+      howItWorks:
+        'Multimodal generative AI synthesizes hundreds of localized copy and visual variants, programmatically testing and allocating ad spend to top-performing combinations.',
+      targetUsers: 'Performance Marketers, Digital Advertisers, Copywriters, Creative Directors',
+      keyBenefit: 'Cuts creative production cycles from two weeks to under two hours and delivers a 28% improvement in ROAS/CTR.',
+      defaultStage: 'Production',
+    },
+    {
+      keywords: ['conversational', 'engagement', 'sms', 'whatsapp', 'bot', 'onboarding', 'post-purchase', 'nurture'],
+      title: 'Autonomous Conversational Lifecycle & Customer Engagement Agents',
+      problemSolved:
+        'Customers disengage after purchase due to impersonal, static email blasts that fail to answer specific onboarding questions or offer timely assistance.',
+      howItWorks:
+        'Two-way conversational AI assistants engage customers across SMS, web, and messaging apps, delivering real-time onboarding guidance and personalized product recommendations.',
+      targetUsers: 'Lifecycle Marketers, Customer Engagement Teams, Brand Experience Directors',
+      keyBenefit: 'Increases 90-day post-purchase engagement by 40% and lifts CSAT scores without increasing support headcount.',
+      defaultStage: 'Pilot',
+    },
+  ],
   custom: [
     {
       keywords: ['process', 'system', 'auto', 'workflow'],
@@ -1052,8 +1092,8 @@ function extractIndustryIntelligenceHeuristic(
   // Sentiment scoring
   const positiveWords = ['breakthrough', 'faster', 'savings', 'innovative', 'welcomed', 'approved', 'adopt', 'boost', 'open up', 'eases', 'helps', 'advance', 'benefit', 'efficiency', 'guidelines'];
   const negativeWords = ['warning', 'ban', 'banned', 'fear', 'threat', 'strike', 'lawsuit', 'liability', 'pushback', 'error', 'risk', 'crisis', 'mystery', 'hallucination', 'displacement', 'cheating'];
-  const workerWords = ['doctor', 'lawyer', 'teacher', 'worker', 'employee', 'engineer', 'developer', 'staff', 'practitioner', 'firm', 'job', 'workload', 'merchant', 'processor', 'acquirer', 'issuer', 'fintech'];
-  const customerWords = ['patient', 'client', 'student', 'customer', 'shopper', 'user', 'public', 'consumer', 'parent', 'buyer', 'cardholder'];
+  const workerWords = ['doctor', 'lawyer', 'teacher', 'worker', 'employee', 'engineer', 'developer', 'staff', 'practitioner', 'firm', 'job', 'workload', 'merchant', 'processor', 'acquirer', 'issuer', 'fintech', 'marketer', 'copywriter', 'advertiser', 'brand', 'agency'];
+  const customerWords = ['patient', 'client', 'student', 'customer', 'shopper', 'user', 'public', 'consumer', 'parent', 'buyer', 'cardholder', 'audience', 'subscriber'];
 
   let workerPos = 0;
   let workerNeg = 0;
@@ -1163,6 +1203,8 @@ function getIndustryProfessions(key: IndustryKey): string[] {
       return ['Reliability Engineers', 'Plant Managers', 'Robotics Technicians'];
     case 'payments':
       return ['Merchant Checkout Engineers', 'Payment Risk & Fraud Analysts', 'Fintech Product Managers', 'E-commerce Operations Directors'];
+    case 'marketing':
+      return ['Brand Strategists', 'Performance Marketers', 'Copywriters', 'Customer Experience Directors', 'CRM Specialists'];
     default:
       return ['Practitioners', 'Specialists'];
   }

@@ -83,6 +83,15 @@ export const DEFAULT_FEEDS: FeedTrack[] = [
     description: 'Autonomous purchasing agents, machine-to-machine checkout rails, merchant adoption, and consumer trust.',
     enabled: true,
   },
+  {
+    id: 'feed-marketing',
+    name: 'Marketing & Customer Engagement',
+    industryKey: 'marketing',
+    iconName: 'Megaphone',
+    query: 'AI marketing "customer engagement" personalization copywriting ad creative campaign CRM churn',
+    description: 'Generative copywriting, hyper-personalized campaigns, predictive churn modeling, and brand trust.',
+    enabled: true,
+  },
 ];
 
 function cleanHtml(rawHtml: string): string {
@@ -254,6 +263,26 @@ const SEED_INDUSTRY_ARTICLES: Record<string, Array<{ title: string; snippet: str
       snippet: 'Major payment card schemes and checkout platforms establish verifiable agent credential frameworks to distinguish legitimate autonomous buying agents from bot-driven card testing and fraud syndicates.',
       source: 'PaymentsSource',
       link: 'https://news.google.com/search?q=payment+networks+agentic+commerce+identity+standards',
+    },
+  ],
+  marketing: [
+    {
+      title: 'Brands Deploy Predictive Churn Modeling and Hyper-Personalized AI Retention Campaigns',
+      snippet: 'Growth marketing teams utilize real-time behavioral ML to predict customer drop-off and trigger dynamic, individualized incentive journeys across channels.',
+      source: 'MarTech Today',
+      link: 'https://news.google.com/search?q=predictive+churn+hyper+personalized+retention+ai+marketing',
+    },
+    {
+      title: 'Generative Ad Creative and Dynamic Copy Optimization Cut Campaign Iteration Cycles in Half',
+      snippet: 'Performance marketers generate multi-variant ad copy, visual assets, and localized messaging variations in minutes, testing thousands of permutations autonomously.',
+      source: 'Adweek Insights',
+      link: 'https://news.google.com/search?q=generative+ad+creative+dynamic+copy+optimization+ai',
+    },
+    {
+      title: 'Autonomous Conversational Lifecycle Bots Drive 40% Uplift in Post-Purchase Customer Engagement',
+      snippet: 'Consumer brands integrate contextual LLM engagement assistants into WhatsApp and SMS, proactively guiding onboarding and reordering without spam fatigue.',
+      source: 'Marketing Dive',
+      link: 'https://news.google.com/search?q=autonomous+conversational+lifecycle+customer+engagement+ai',
     },
   ],
 };

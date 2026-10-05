@@ -13,6 +13,7 @@ import {
   ShoppingBag,
   Cpu,
   CreditCard,
+  Megaphone,
   Sparkles,
   ExternalLink,
   BookOpen,
@@ -35,6 +36,7 @@ const ICON_MAP: Record<string, any> = {
   retail: ShoppingBag,
   manufacturing: Cpu,
   payments: CreditCard,
+  marketing: Megaphone,
 };
 
 export function SentimentMatrix({ industries, onSelectArticles }: SentimentMatrixProps) {

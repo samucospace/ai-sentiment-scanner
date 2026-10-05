@@ -6,7 +6,7 @@ This document serves as the primary architecture, design, and operational manual
 
 ## 1. Project Overview
 
-The **AI Industry Sentiment & Use Case Scanner** is an autonomous intelligence dashboard that monitors the evolving impact of Artificial Intelligence across 9 major industry tracks and custom user-defined topics. 
+The **AI Industry Sentiment & Use Case Scanner** is an autonomous intelligence dashboard that monitors the evolving impact of Artificial Intelligence across 10 major industry tracks and custom user-defined topics. 
 
 ### Core Capabilities:
 1. **Daily Feed Ingestion**: Ingests real-time Google Alert and Google News RSS feeds across industry tracks.
@@ -18,6 +18,9 @@ The **AI Industry Sentiment & Use Case Scanner** is an autonomous intelligence d
    - **OpenRouter API**: Access to 100+ free and cheap LLMs (e.g., `google/gemini-2.0-flash-exp:free`, `meta-llama/llama-3.3-70b-instruct:free`, `deepseek/deepseek-chat`, `openai/gpt-4o-mini`).
    - **Google Gemini Direct**: Native `@google/generative-ai` integration.
    - **Zero-Config Heuristic Engine**: Built-in deterministic NLP analyzer for offline operation without requiring an API key.
+5. **Headlines & LinkedIn Studio**:
+   - Comprehensive filterable list of all ingested headlines and publisher sources for that day's data pull.
+   - 3 curated LinkedIn post topic blueprints with hooks, evidence/data, counter-intuitive arguments, engagement prompts, source citations, and ready-to-copy drafts.
 
 ---
 
@@ -45,6 +48,7 @@ ai-sentiment-scanner/
 │   ├── ArticleDetailModal.tsx   # Modal to view raw articles and source snippets
 │   ├── ExecutiveBriefing.tsx    # Daily summary & macro sentiment cards
 │   ├── FeedManagerModal.tsx     # Manage search queries & custom Google Alert RSS URLs
+│   ├── HeadlinesLinkedInTab.tsx # Daily headlines feed & 3 curated LinkedIn post topic blueprints
 │   ├── Navbar.tsx               # Header, live scan trigger, view switcher
 │   ├── SentimentGauge.tsx       # Visual gauge (-1.0 to +1.0) with color grading
 │   ├── SentimentMatrix.tsx      # Dual sentiment radar cards by industry
@@ -55,6 +59,7 @@ ai-sentiment-scanner/
 │   ├── analyzer.ts              # Gemini prompt + Heuristic NLP extraction engine
 │   ├── db.ts                    # Persistence layer for digests, feeds & settings
 │   ├── feeds.ts                 # Preset industry queries & RSS parser
+│   ├── linkedin.ts              # Generator for 3 curated LinkedIn post topics & outlines
 │   └── types.ts                 # TypeScript data contracts
 ├── .data/                       # Local store directory (auto-created at runtime)
 │   └── store.json
@@ -123,6 +128,7 @@ export interface IndustryDigest {
 7. **Retail & Customer Support** (`retail`): Autonomous resolution bots, inventory forecasting, and virtual try-ons.
 8. **Manufacturing & Robotics** (`manufacturing`): Predictive vibration maintenance and autonomous bin-picking robotics.
 9. **Payments & Agentic Commerce** (`payments`): Autonomous purchasing agents, machine-to-machine checkout rails, programmable spending guardrails, and bot fraud prevention.
+10. **Marketing & Customer Engagement** (`marketing`): Generative copywriting, hyper-personalized campaigns, predictive churn modeling, and conversational lifecycle engagement.
 
 ---
 

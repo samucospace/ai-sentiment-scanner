@@ -55,6 +55,7 @@ const INDUSTRY_OPTIONS: { key: 'all' | IndustryKey; label: string; icon: string 
   { key: 'retail', label: 'Retail & Support', icon: '🛍️' },
   { key: 'manufacturing', label: 'Manufacturing & Robotics', icon: '⚙️' },
   { key: 'payments', label: 'Payments & Agentic Commerce', icon: '🤖' },
+  { key: 'marketing', label: 'Marketing & Customer Engagement', icon: '📣' },
 ];
 
 export function SentimentTrends({

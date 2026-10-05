@@ -11,6 +11,7 @@ import {
   Layers,
   Lightbulb,
   TrendingUp,
+  Newspaper,
 } from 'lucide-react';
 import { ActiveDashboardView } from '@/lib/types';
 
@@ -93,6 +94,17 @@ export function Navbar({
             <TrendingUp className="w-3.5 h-3.5" />
             <span>Sentiment Trends</span>
           </button>
+          <button
+            onClick={() => onChangeView('headlines')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+              activeView === 'headlines'
+                ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm font-semibold'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Newspaper className="w-3.5 h-3.5" />
+            <span>Headlines & LinkedIn</span>
+          </button>
         </div>
 
         {/* Action Controls */}
@@ -166,6 +178,17 @@ export function Navbar({
         >
           <TrendingUp className="w-3.5 h-3.5" />
           <span>Trends</span>
+        </button>
+        <button
+          onClick={() => onChangeView('headlines')}
+          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all ${
+            activeView === 'headlines'
+              ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 font-semibold shadow-sm'
+              : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <Newspaper className="w-3.5 h-3.5" />
+          <span>Headlines</span>
         </button>
       </div>
     </header>

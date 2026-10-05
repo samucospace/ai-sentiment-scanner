@@ -7,6 +7,7 @@ import { ExecutiveBriefing } from '@/components/ExecutiveBriefing';
 import { SentimentMatrix } from '@/components/SentimentMatrix';
 import { UseCasesRadar } from '@/components/UseCasesRadar';
 import { SentimentTrends } from '@/components/SentimentTrends';
+import { HeadlinesLinkedInTab } from '@/components/HeadlinesLinkedInTab';
 import { FeedManagerModal } from '@/components/FeedManagerModal';
 import { SettingsModal } from '@/components/SettingsModal';
 import { ArticleDetailModal } from '@/components/ArticleDetailModal';
@@ -215,6 +216,8 @@ export default function DashboardPage() {
                 onSelectDigest={handleSelectHistoricalDigest}
                 onNavigateToMatrix={() => setActiveView('matrix')}
               />
+            ) : activeView === 'headlines' ? (
+              <HeadlinesLinkedInTab digest={digest} />
             ) : (
               <>
                 {/* Executive Briefing Section */}

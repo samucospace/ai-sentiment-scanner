@@ -8,11 +8,12 @@ export type IndustryKey =
   | 'retail'
   | 'manufacturing'
   | 'payments'
+  | 'marketing'
   | 'custom';
 
 export type LLMProvider = 'openrouter' | 'gemini';
 
-export type ActiveDashboardView = 'matrix' | 'usecases' | 'trends';
+export type ActiveDashboardView = 'matrix' | 'usecases' | 'trends' | 'headlines';
 
 export interface SentimentTrendPoint {
   date: string;
@@ -89,6 +90,29 @@ export interface IndustryDigest {
   engineUsed?: string; // e.g. "OpenRouter (google/gemini-2.0-flash-exp:free)" or "Google Gemini" or "Heuristic Fallback Engine"
 }
 
+export interface LinkedInPostOutline {
+  hook: string;
+  evidenceAndData: string;
+  keyInsight: string;
+  callToAction: string;
+}
+
+export interface LinkedInTopicSuggestion {
+  id: string;
+  title: string;
+  category: string;
+  targetAudience: string;
+  description: string;
+  postOutline: LinkedInPostOutline;
+  suggestedHashtags: string[];
+  relevantHeadlines: Array<{
+    title: string;
+    source: string;
+    link: string;
+  }>;
+  sampleDraft?: string;
+}
+
 export interface DailyDigest {
   id: string;
   date: string; // YYYY-MM-DD
@@ -98,6 +122,7 @@ export interface DailyDigest {
   industries: IndustryDigest[];
   totalArticlesScanned: number;
   engineUsed?: string;
+  linkedInTopics?: LinkedInTopicSuggestion[];
 }
 
 export interface AppSettings {

@@ -147,7 +147,7 @@ export function ExecutiveBriefing({ digest }: ExecutiveBriefingProps) {
             </span>
           </div>
           <div className="mt-2 text-[11px] text-slate-500">
-            Healthcare, Legal, Payments, Finance, Tech & more.
+            Healthcare, Legal, Marketing, Payments, Tech & more.
           </div>
         </div>
       </div>
