@@ -14,6 +14,7 @@
 # Local Database & Runtime Store
 /.data/
 !.data/.gitkeep
+/.backup-repo/
 
 # Environment variables
 .env

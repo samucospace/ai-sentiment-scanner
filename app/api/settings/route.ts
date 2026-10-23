@@ -1,6 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
+import fs from 'node:fs';
+import path from 'node:path';
 import { getSettings, saveSettings } from '@/lib/db';
 import { AppSettings, LLMProvider } from '@/lib/types';
+
+function saveEnvKey(name: string, value: string) {
+  try {
+    const envPath = path.join(process.cwd(), '.env.local');
+    let content = '';
+    if (fs.existsSync(envPath)) {
+      content = fs.readFileSync(envPath, 'utf8');
+    }
+    const regex = new RegExp(`^${name}=.*$`, 'm');
+    if (regex.test(content)) {
+      content = content.replace(regex, `${name}=${value}`);
+    } else {
+      content = content.trimEnd() + (content.length > 0 ? '\n' : '') + `${name}=${value}\n`;
+    }
+    fs.writeFileSync(envPath, content, 'utf8');
+    process.env[name] = value;
+  } catch (err) {
+    console.error(`Failed to update ${name} in .env.local:`, err);
+  }
+}
 
 export async function GET() {
   const settings = getSettings();
@@ -88,10 +110,15 @@ export async function POST(req: NextRequest) {
 
     const { provider, openrouterApiKey, geminiApiKey, modelName } = body as Partial<AppSettings>;
 
+    if (openrouterApiKey && openrouterApiKey.trim()) {
+      saveEnvKey('OPENROUTER_API_KEY', openrouterApiKey.trim());
+    }
+    if (geminiApiKey && geminiApiKey.trim()) {
+      saveEnvKey('GEMINI_API_KEY', geminiApiKey.trim());
+    }
+
     const update: Partial<AppSettings> = {};
     if (provider !== undefined) update.provider = provider as LLMProvider;
-    if (openrouterApiKey !== undefined) update.openrouterApiKey = openrouterApiKey.trim();
-    if (geminiApiKey !== undefined) update.geminiApiKey = geminiApiKey.trim();
     if (modelName !== undefined) update.modelName = modelName.trim();
 
     const saved = saveSettings(update);
@@ -99,8 +126,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       provider: saved.provider,
-      hasOpenRouterKey: !!saved.openrouterApiKey,
-      hasGeminiKey: !!saved.geminiApiKey,
+      hasOpenRouterKey: !!(saved.openrouterApiKey || process.env.OPENROUTER_API_KEY),
+      hasGeminiKey: !!(saved.geminiApiKey || process.env.GEMINI_API_KEY),
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -33,6 +33,12 @@ function ensureDataFile(): DatabaseSchema {
     const parsed = JSON.parse(content) as DatabaseSchema;
     if (!parsed.digests) parsed.digests = {};
     let feedsUpdated = false;
+    // Ensure sensitive API keys are never stored in store.json
+    if (parsed.settings.openrouterApiKey || parsed.settings.geminiApiKey) {
+      delete parsed.settings.openrouterApiKey;
+      delete parsed.settings.geminiApiKey;
+      feedsUpdated = true;
+    }
     if (!parsed.settings.customFeeds || parsed.settings.customFeeds.length === 0) {
       parsed.settings.customFeeds = DEFAULT_FEEDS;
       feedsUpdated = true;
