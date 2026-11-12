@@ -92,6 +92,15 @@ export const DEFAULT_FEEDS: FeedTrack[] = [
     description: 'Generative copywriting, hyper-personalized campaigns, predictive churn modeling, and brand trust.',
     enabled: true,
   },
+  {
+    id: 'feed-lifeinsurance',
+    name: 'Life Insurance',
+    industryKey: 'lifeinsurance',
+    iconName: 'ShieldCheck',
+    query: 'AI "life insurance" underwriting actuarial mortality claims policyholder',
+    description: 'Algorithmic underwriting, actuarial mortality risk modeling, accelerated claims, and policyholder privacy.',
+    enabled: true,
+  },
 ];
 
 function cleanHtml(rawHtml: string): string {
@@ -283,6 +292,26 @@ const SEED_INDUSTRY_ARTICLES: Record<string, Array<{ title: string; snippet: str
       snippet: 'Consumer brands integrate contextual LLM engagement assistants into WhatsApp and SMS, proactively guiding onboarding and reordering without spam fatigue.',
       source: 'Marketing Dive',
       link: 'https://news.google.com/search?q=autonomous+conversational+lifecycle+customer+engagement+ai',
+    },
+  ],
+  lifeinsurance: [
+    {
+      title: 'Life Insurers Accelerate Automated Underwriting to Eliminate Weeks of Paramedical Exams',
+      snippet: 'Major life insurance carriers deploy predictive risk scoring models connected to electronic health records and prescription databases, approving clean term life policies in minutes rather than 30-day medical waiting periods.',
+      source: 'Life Insurance International',
+      link: 'https://news.google.com/search?q=life+insurance+automated+underwriting+ai',
+    },
+    {
+      title: 'Actuarial Teams Deploy Dynamic Longevity and Sensor Telemetry Risk Models',
+      snippet: 'Actuaries combine machine learning with continuous wellness telemetry from policyholder smartwatches, offering premium discounts for verified physical activity while raising consumer data privacy questions.',
+      source: 'Actuarial Post',
+      link: 'https://news.google.com/search?q=actuarial+mortality+longevity+risk+modeling+ai',
+    },
+    {
+      title: 'State Regulators Scrutinize Algorithmic Bias in Life Insurance Denial and Pricing Algorithms',
+      snippet: 'Insurance commissioners push for strict transparency guidelines and audits to ensure artificial intelligence underwriting models do not produce proxy discrimination across minority policyholders.',
+      source: 'Insurance Journal',
+      link: 'https://news.google.com/search?q=life+insurance+ai+algorithmic+bias+regulators',
     },
   ],
 };

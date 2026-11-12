@@ -6,7 +6,7 @@ This document serves as the primary architecture, design, and operational manual
 
 ## 1. Project Overview
 
-The **AI Industry Sentiment & Use Case Scanner** is an autonomous intelligence dashboard that monitors the evolving impact of Artificial Intelligence across 10 major industry tracks and custom user-defined topics. 
+The **AI Industry Sentiment & Use Case Scanner** is an autonomous intelligence dashboard that monitors the evolving impact of Artificial Intelligence across 11 major industry tracks and custom user-defined topics. 
 
 ### Core Capabilities:
 1. **Daily Feed Ingestion**: Ingests real-time Google Alert and Google News RSS feeds across industry tracks.
@@ -129,6 +129,7 @@ export interface IndustryDigest {
 8. **Manufacturing & Robotics** (`manufacturing`): Predictive vibration maintenance and autonomous bin-picking robotics.
 9. **Payments & Agentic Commerce** (`payments`): Autonomous purchasing agents, machine-to-machine checkout rails, programmable spending guardrails, and bot fraud prevention.
 10. **Marketing & Customer Engagement** (`marketing`): Generative copywriting, hyper-personalized campaigns, predictive churn modeling, and conversational lifecycle engagement.
+11. **Life Insurance** (`lifeinsurance`): Algorithmic underwriting, actuarial mortality risk modeling, accelerated claims adjudication, and policyholder privacy guardrails.
 
 ---
 

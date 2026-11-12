@@ -1012,6 +1012,52 @@ const INDUSTRY_USECASE_PATTERNS: Record<IndustryKey, UseCaseTemplate[]> = {
       defaultStage: 'Pilot',
     },
   ],
+  lifeinsurance: [
+    {
+      keywords: ['underwriting', 'approval', 'exam', 'instant', 'ehr', 'application', 'paramedical', 'issuance'],
+      title: 'Accelerated EHR-Driven Life Underwriting & Instant Policy Issuance',
+      problemSolved:
+        'Traditional life insurance underwriting requires intrusive paramedical blood draws and 4 to 6 weeks of manual document review, leading to high applicant drop-off.',
+      howItWorks:
+        'Underwriting ML engines ingest structured electronic health records, prescription histories, and motor vehicle records via secure APIs to calculate real-time risk scores and issue instant policy approvals.',
+      targetUsers: 'Life Underwriters, Insurance Brokers, Direct-to-Consumer Applicants',
+      keyBenefit: 'Reduces policy issuance time from 35 days to under 10 minutes while preserving actuarial risk fidelity.',
+      defaultStage: 'Production',
+    },
+    {
+      keywords: ['actuarial', 'mortality', 'longevity', 'telemetry', 'wearable', 'sensor', 'premium', 'lifestyle'],
+      title: 'Dynamic Actuarial Longevity Modeling & Continuous Wellness Telemetry',
+      problemSolved:
+        'Static mortality tables fail to capture real-time cardiovascular health, physical fitness, and lifestyle improvements of modern policyholders.',
+      howItWorks:
+        'Predictive survival models evaluate anonymized biometric telemetry from policyholder smart devices, automatically adjusting policy renewal incentives and dynamic wellness dividends.',
+      targetUsers: 'Life Actuaries, Risk Analytics Officers, Health-Conscious Policyholders',
+      keyBenefit: 'Improves portfolio mortality experience by 18% and incentivizes prolonged customer health engagement.',
+      defaultStage: 'Pilot',
+    },
+    {
+      keywords: ['claims', 'payout', 'beneficiary', 'contestability', 'death certificate', 'fraud', 'adjudication'],
+      title: 'Autonomous Death Claims Adjudication & Beneficiary Fraud Defense',
+      problemSolved:
+        'Grieving beneficiaries face prolonged verification delays and complex notarization hurdles during life policy claim processing, while insurers face contestability fraud.',
+      howItWorks:
+        'Document understanding AI and death registry verification agents validate government vital statistics, policy terms, and beneficiary identities for expedited payout settlement.',
+      targetUsers: 'Claims Adjusters, Special Investigation Units (SIU), Policy Beneficiaries',
+      keyBenefit: 'Accelerates legitimate death benefit distributions from 3 weeks to under 48 hours while flagging fraudulent contestable claims.',
+      defaultStage: 'Production',
+    },
+    {
+      keywords: ['bias', 'proxy', 'regulat', 'fairness', 'discriminat', 'compliance', 'audit', 'transparency'],
+      title: 'Algorithmic Fairness Auditing & Non-Discrimination Governance Framework',
+      problemSolved:
+        'Complex black-box predictive models can inadvertently ingest socioeconomic or geographic proxies for race and disability, risking severe regulatory penalties and customer distrust.',
+      howItWorks:
+        'Automated model governance toolkits continuously audit risk scores against adverse impact standards, generating explainable rationale statements for adverse underwriting decisions.',
+      targetUsers: 'Chief Compliance Officers, Insurance Regulators, Actuarial Governance Boards',
+      keyBenefit: 'Guarantees 100% compliance with state insurance fairness mandates and provides applicants transparent adverse action rationales.',
+      defaultStage: 'Policy/Banned',
+    },
+  ],
   custom: [
     {
       keywords: ['process', 'system', 'auto', 'workflow'],
@@ -1205,6 +1251,8 @@ function getIndustryProfessions(key: IndustryKey): string[] {
       return ['Merchant Checkout Engineers', 'Payment Risk & Fraud Analysts', 'Fintech Product Managers', 'E-commerce Operations Directors'];
     case 'marketing':
       return ['Brand Strategists', 'Performance Marketers', 'Copywriters', 'Customer Experience Directors', 'CRM Specialists'];
+    case 'lifeinsurance':
+      return ['Life Underwriters', 'Life Actuaries', 'Claims Adjusters', 'Insurance Brokers', 'Risk & Compliance Officers'];
     default:
       return ['Practitioners', 'Specialists'];
   }

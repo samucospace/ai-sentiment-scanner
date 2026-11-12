@@ -9,6 +9,7 @@ export type IndustryKey =
   | 'manufacturing'
   | 'payments'
   | 'marketing'
+  | 'lifeinsurance'
   | 'custom';
 
 export type LLMProvider = 'openrouter' | 'gemini';

@@ -14,6 +14,7 @@ import {
   Cpu,
   CreditCard,
   Megaphone,
+  ShieldCheck,
   Sparkles,
   ExternalLink,
   BookOpen,
@@ -37,6 +38,7 @@ const ICON_MAP: Record<string, any> = {
   manufacturing: Cpu,
   payments: CreditCard,
   marketing: Megaphone,
+  lifeinsurance: ShieldCheck,
 };
 
 export function SentimentMatrix({ industries, onSelectArticles }: SentimentMatrixProps) {
